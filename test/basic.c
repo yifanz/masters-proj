@@ -5,7 +5,11 @@ ssize_t write(int fd, const void *buf, size_t count);
 
 void reverse(char str[], int length);
 char* itoa(int num, char* str, int base);
-size_t str_len (const char *str);
+
+size_t str_len (const char *str)
+{
+    return (*str) ? str_len(++str) + 1 : 0;
+}
 
 int
 main(int argc, const char* argv[])
@@ -16,15 +20,17 @@ main(int argc, const char* argv[])
 
     char * str = "Hello World\n";
     char * str2 = "Hello UCLA\n";
-    char str3[20];
+    char * str3 = "This is string 3!\n";
+    char buf[20];
     unsigned long len = 0;
 
-    ret = write(stdout, str2, str_len(str2));
-    itoa(ret, str3, 10);
-    len = str_len(str3);
-    str3[len] = '\n';
     //__asm__("vmcall;\n");
-    ret = write(stdout, str3, len+1);
+    ret = write(stdout, str2, str_len(str2));
+    itoa(ret, buf, 10);
+    len = str_len(buf);
+    buf[len] = '\n';
+    ret = write(stdout, buf, len+1);
+    ret = write(stdout, str3, str_len(str3));
 
     /*
     __asm__(
@@ -118,9 +124,3 @@ char* itoa(int num, char* str, int base)
 
     return str;
 }
-
-size_t str_len (const char *str)
-{
-    return (*str) ? str_len(++str) + 1 : 0;
-}
-

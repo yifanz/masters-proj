@@ -13,6 +13,7 @@
 #include "reg.h"
 #include "dump.h"
 #include "emu.h"
+#include "macho-parser.h"
 
 void *vm_mem;
 
@@ -169,7 +170,7 @@ main(int argc, char **argv)
         abort();
     }
 
-#define START_ADDR 0x0000000000006000
+#define START_ADDR 0x0000000000008000
     hv_vcpu_write_register(vcpu, HV_X86_RIP, START_ADDR);
     // RFLAGS second bit is reserved by Intel and must be set to 1
     hv_vcpu_write_register(vcpu, HV_X86_RFLAGS, 0x0000000000000002);
@@ -193,11 +194,26 @@ main(int argc, char **argv)
     }
 
     {
-#define START_ADDR_EXE 0x0000000000200000
+#define DYLD_ADDR 0x0000000000200000
+        FILE *f = fopen("/usr/lib/dyld", "r");
+        struct stat st;
+        stat(argv[2], &st);
+        fread((void *) ((uintptr_t) vm_mem + DYLD_ADDR), 1, st.st_size, f);
+        fclose(f);
+    }
+
+    {
+#define START_ADDR_EXE 0x0000000000400000
+#define KSTACK_ADDR 0x0000000000001000
         FILE *f = fopen(argv[2], "r");
         struct stat st;
         stat(argv[2], &st);
         fread((void *) ((uintptr_t) vm_mem + START_ADDR_EXE), 1, st.st_size, f);
+        struct entry_point_command entry_point;
+        if (!read_entry_point_cmd(f, &entry_point)) {
+            printf("entry point: %llx\t stack size: %llx\n", entry_point.entryoff, entry_point.stacksize);
+            *((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 8)) = entry_point.entryoff;
+        }
         fclose(f);
     }
 

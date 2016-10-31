@@ -17,7 +17,7 @@
 
 ; Once assembled, the binary is loaded at this physical address.
 ; All relative jump calculations use this as the base address.
-org 0x6000
+org 0x8000
 
 ; The VM is initialized in 32-bit protected mode. We skip 16-bit mode entirely.
 ; Although we only support 64-bit executables, having the 32-bit mode
@@ -32,22 +32,26 @@ org 0x6000
 ; 0x1000 <- Start of 4KByte kernel stack (stack grows down)
 ; 0x1000 <- PML4E, root page structure
 ; 0x2000 <- PDPTE, 1st level page structure
-; 0x3000 <- PDE, 2nd level page structure (1st Gbyte for kernel)
-; 0x4000 <- PDE (5th Gbyte where we put the application)
-; 0x5000 <- TSS segment
-; 0x6000 <- The first instrucion is here
+; 0x3000 <- PDPTE2, (for dyld)
+; 0x4000 <- PDE, 2nd level page structure (1st Gbyte for kernel)
+; 0x5000 <- PDE2 (for dyld)
+; 0x6000 <- PDE3 (5th Gbyte where we put the application)
+; 0x7000 <- TSS segment
+; 0x8000 <- The first instrucion is here
 
 ; Kernel stack
 %define KERN_STACK_ADDR 0x1000
 
 ; Setup the kernel stack.
-mov esp, KERN_STACK_ADDR
+mov esp, KERN_STACK_ADDR - 8
 mov ebp, esp
 
 ; IA-32e paging (aka long mode, 64-bit mode) translates 48-bit linear virtual
 ; addresses into 52 bit physical addresses. Intel uses the word "linear" to
 ; indicate the use of paging rather than segmentation to support virtual memory.
-; Thus, a total of 256 TBytes of virtual memory is addressable.
+; In other words, if paging was disabled, the "linear" address is not translated
+; any further and is the physical address.
+; A total of 256 TBytes of virtual memory is addressable.
 ; Paging is required for long mode.
 ;
 ; x86 uses hierarchical paging and supports page sizes ranging from 4Kbytes
@@ -75,8 +79,10 @@ mov ebp, esp
 ; In other words, the lower 12 bits are always zero.
 %define PML4E_ADDR 0x1000
 %define PDPTE_ADDR 0x2000
-%define PDE_ADDR 0x3000
-%define PDE2_ADDR 0x4000
+%define PDPTE2_ADDR 0x3000
+%define PDE_ADDR 0x4000
+%define PDE2_ADDR 0x5000
+%define PDE3_ADDR 0x6000
 
 ; PML4E entry format:
 ; bits  = description
@@ -156,7 +162,7 @@ mov fs, ax
 mov gs, ax
 
 ; setup task segment
-%define TSS_BASE 0x4000
+%define TSS_BASE 0x7000
 %define TSS_LIMIT 0x67 ; 103 bytes, max legal offset inside a 104 byte segment
 mov eax, TSS_BASE
 mov dword [eax], 0x0 ; Reserved
@@ -239,28 +245,78 @@ _64_bits:
   ;push ring3 
   ;iretq
 
-  ; Map virtual address 0x100000000 to physical address 0x200000
-  mov rax, PDE2_ADDR
-  or rax, 0b111
-  ; 5th entry because each entry covers 1GByte.
-  mov [PDPTE_ADDR+32], rax
+  ; Map virtual address 0x100000000 to physical address 0x400000
+  %define EXE_ADDR 0x100000000
 
-  mov rax, 0x200000
-  ;shl rax, 21
-  or rax, 0b10000111
-  mov [PDE2_ADDR], rax
+  mov rax, EXE_ADDR
+  shr rax, 21
+  and rax, 0b111111111
+  shl rax, 3
+  add rax, PDE3_ADDR
+
+  mov rbx, 0x400000
+  or rbx, 0b10000111
+  mov [rax], rbx
+
+  mov rax, EXE_ADDR
+  shr rax, 30
+  and rax, 0b111111111
+  shl rax, 3
+  add rax, PDPTE_ADDR
+
+  mov rbx, PDE3_ADDR
+  or rbx, 0b111
+  mov [rax], rbx
+
+  ; Map virtual address 0x7fff5fc00000 to physical address 0x200000
+  %define DYLD_ADDR 0x7fff5fc00000
+
+  mov rax, DYLD_ADDR
+  shr rax, 21
+  and rax, 0b111111111
+  shl rax, 3
+  add rax, PDE2_ADDR
+
+  mov rbx, 0x200000
+  or rbx, 0b10000111
+  mov [rax], rbx
+
+  mov rax, DYLD_ADDR
+  shr rax, 30
+  and rax, 0b111111111
+  shl rax, 3
+  add rax, PDPTE2_ADDR
+
+  mov rbx, PDE2_ADDR
+  or rbx, 0b111
+  mov [rax], rbx
+
+  mov rax, DYLD_ADDR
+  shr rax, 39
+  and rax, 0b111111111
+  shl rax, 3
+  add rax, PML4E_ADDR
+
+  mov rbx, PDPTE2_ADDR
+  or rbx, 0b111
+  mov [rax], rbx 
 
   ; TODO TESTING!!!
   ;mov rax, 0x100000000 + 3744
   ;mov rbx, [rax]
   ;vmcall
 
-  ; Jump to the application.
+
+  ; TODO Hardcoded for now; parse header to find the beginning of text segment.
+  mov rax, 0x100000000
+  pop rbx
+  add rax, rbx
+  ;mov rax, 0x100000000 + 0xc00
+
   ; Once the the app's main function returns, we halt.
   push halt
-  ; TODO Hardcoded for now; parse header to find the beginning of text segment.
-  ;mov rax, 0x100000000 + 0xec0
-  mov rax, 0x100000000 + 0xc00
+
+  ; Jump to the application.
   push rax
   ret
 
