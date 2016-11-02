@@ -40,10 +40,10 @@ org 0x8000
 ; 0x8000 <- The first instrucion is here
 
 ; Kernel stack
-%define KERN_STACK_ADDR 0x1000
+%define KERN_STACK_ADDR 0x20000
 
 ; Setup the kernel stack.
-mov esp, KERN_STACK_ADDR - 8
+mov esp, KERN_STACK_ADDR - 16
 mov ebp, esp
 
 ; IA-32e paging (aka long mode, 64-bit mode) translates 48-bit linear virtual
@@ -132,6 +132,7 @@ mov cr3, eax
 ; Assert the PGE and PAE bits. This is a prerequisite for long mode.
 mov eax, cr4
 or eax, 0b10100000
+or eax, 0b11000000000
 mov cr4, eax
 
 ; Enable long mode by writing appropriate bits to the EFER MSR.
@@ -145,6 +146,7 @@ wrmsr ; exactly the reverse of rdmsr
 ; Assert PG bit of CR0 to turn on paging.
 mov eax, cr0
 or eax, 0x80000000
+or eax, 0b10
 mov cr0, eax
 
 ; load the GDT
@@ -308,16 +310,32 @@ _64_bits:
 
 
   ; TODO Hardcoded for now; parse header to find the beginning of text segment.
-  mov rax, 0x100000000
-  pop rbx
-  add rax, rbx
+  ;mov rax, 0x100000000
+  ;pop rbx
+  ;add rax, rbx
   ;mov rax, 0x100000000 + 0xc00
+
+  pop rax
+  pop rbx
+  ;mov rbx, [rax]
+  ;hlt
 
   ; Once the the app's main function returns, we halt.
   push halt
 
   ; Jump to the application.
   push rax
+  push rbx
+  
+  ;mov rax, 0x7fff5fc22bee
+  ;mov rbx, [rax]
+  ;hlt
+
+  mov rax, 0
+  mov rbx, 0
+  mov rcx, 0
+  mov rdx, 0
+
   ret
 
 halt:

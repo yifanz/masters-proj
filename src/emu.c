@@ -1,12 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <Hypervisor/hv.h>
-#include <Hypervisor/hv_vmx.h>
 
 #include "emu.h"
-#include "reg.h"
+#include "vcpu.h"
 
-static uint64_t vmx_get_guest_reg(int vcpu, int ident)
+static uint64_t vmx_get_guest_reg(hv_vcpuid_t vcpu, int ident)
 {
     switch (ident) {
     case 0:
@@ -48,7 +46,7 @@ static uint64_t vmx_get_guest_reg(int vcpu, int ident)
 }
 
 int
-emu_rdmsr(int vcpu)
+emu_rdmsr(hv_vcpuid_t vcpu)
 {
     int stop = 0;
     uint32_t ecx =
@@ -75,7 +73,7 @@ emu_rdmsr(int vcpu)
 }
 
 int
-emu_wrmsr(int vcpu)
+emu_wrmsr(hv_vcpuid_t vcpu)
 {
     int stop = 0;
     uint64_t tmp = 0;
@@ -105,7 +103,7 @@ emu_wrmsr(int vcpu)
 }
 
 int
-emu_mov_cr(int vcpu)
+emu_mov_cr(hv_vcpuid_t vcpu)
 {
     int stop = 0;
     uint64_t exit_qualification = 0;
@@ -166,7 +164,7 @@ emu_mov_cr(int vcpu)
 }
 
 int
-emu_cpuid(int vcpu)
+emu_cpuid(hv_vcpuid_t vcpu)
 {
     int stop = 0;
     // Emulate CPUID to show long mode capable processor
