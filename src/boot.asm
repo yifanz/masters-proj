@@ -29,22 +29,16 @@ org 0x8000
 ; =======================
 ;
 ; 0x0000 <- GDT for 32-bit mode (can be erased once we get to 64-bit mode)
-; 0x1000 <- Start of 4KByte kernel stack (stack grows down)
-; 0x1000 <- PML4E, root page structure
-; 0x2000 <- PDPTE, 1st level page structure
-; 0x3000 <- PDPTE2, (for dyld)
-; 0x4000 <- PDE, 2nd level page structure (1st Gbyte for kernel)
-; 0x5000 <- PDE2 (for dyld)
-; 0x6000 <- PDE3 (5th Gbyte where we put the application)
+; 0x7000 <- Start of 4KByte kernel stack (stack grows down)
 ; 0x7000 <- TSS segment
 ; 0x8000 <- The first instrucion is here
 
 ; Kernel stack
-%define KERN_STACK_ADDR 0x20000
+;%define KERN_STACK_ADDR 0x7000
 
 ; Setup the kernel stack.
-mov esp, KERN_STACK_ADDR - 16
-mov ebp, esp
+;mov esp, KERN_STACK_ADDR - 16
+;mov ebp, esp
 
 ; IA-32e paging (aka long mode, 64-bit mode) translates 48-bit linear virtual
 ; addresses into 52 bit physical addresses. Intel uses the word "linear" to
@@ -77,7 +71,7 @@ mov ebp, esp
 
 ; Paging structures must be aligned to a 4KByte boundary.
 ; In other words, the lower 12 bits are always zero.
-%define PML4E_ADDR 0x1000
+%define PML4E_ADDR 0x200000
 %define PDPTE_ADDR 0x2000
 %define PDPTE2_ADDR 0x3000
 %define PDE_ADDR 0x4000
@@ -94,40 +88,41 @@ mov ebp, esp
 ; 51-62 = I don't use them
 ; 63    = If 1, execute disabled
 
-mov dword eax, PDPTE_ADDR
-; Set user, allow write and present bits.
-or dword eax, 0b011 
-mov dword [PML4E_ADDR], eax
-mov dword [PML4E_ADDR+4], 0
-
-; PDPTE entry format:
-; similar to PML4E
-
-mov dword eax, PDE_ADDR
-or dword eax, 0b011
-mov dword [PDPTE_ADDR], eax
-mov dword [PDPTE_ADDR+4], 0
-
-; PDE entry format:
-; bits  = description
-; 0     = Present
-; 1     = If 0, writes not allowed
-; 2     = If 0, user mode access not allowed
-; 3-6   = I don't use them
-; 7     = If 1, this entry points to 2Mbyte page
-; 8-20  = I don't use them
-; 21-50 = Address of 2Mbyte page
-; 51-62 = I don't use them
-; 63    = If 1, execute disabled
-
-; The first 2MBytes are for the kernel
-; Set present, allow write and page size bits.
-mov dword [PDE_ADDR], 0b10000011
-mov dword [PDE_ADDR+4], 0
+;mov dword eax, PDPTE_ADDR
+;; Set user, allow write and present bits.
+;or dword eax, 0b011 
+;mov dword [PML4E_ADDR], eax
+;mov dword [PML4E_ADDR+4], 0
+;
+;; PDPTE entry format:
+;; similar to PML4E
+;
+;mov dword eax, PDE_ADDR
+;or dword eax, 0b011
+;mov dword [PDPTE_ADDR], eax
+;mov dword [PDPTE_ADDR+4], 0
+;
+;; PDE entry format:
+;; bits  = description
+;; 0     = Present
+;; 1     = If 0, writes not allowed
+;; 2     = If 0, user mode access not allowed
+;; 3-6   = I don't use them
+;; 7     = If 1, this entry points to 2Mbyte page
+;; 8-20  = I don't use them
+;; 21-50 = Address of 2Mbyte page
+;; 51-62 = I don't use them
+;; 63    = If 1, execute disabled
+;
+;; The first 2MBytes are for the kernel
+;; Set present, allow write and page size bits.
+;mov dword [PDE_ADDR], 0b10000011
+;mov dword [PDE_ADDR+4], 0
 
 ; Point CR3 to the root page structure.
-mov eax, PML4E_ADDR
+pop eax
 mov cr3, eax
+push eax
 
 ; Assert the PGE and PAE bits. This is a prerequisite for long mode.
 mov eax, cr4
@@ -169,7 +164,8 @@ mov gs, ax
 mov eax, TSS_BASE
 mov dword [eax], 0x0 ; Reserved
 add eax, 0x4
-mov dword [eax], KERN_STACK_ADDR ; RSP0 lower
+pop ebx
+mov dword [eax], ebx ; RSP0 lower
 add eax, 0x4
 mov dword [eax], 0x0 ; RSP0 upper
 add eax, 0x4
@@ -229,6 +225,8 @@ jmp 0b00001000:_64_bits
 
 BITS 64
 _64_bits:
+  mov rax, 0xfeadcefeadef
+  hlt
   ; TODO TESTING!!!
   ;mov rax, 0xfadefeedcafebeef
   ;vmcall

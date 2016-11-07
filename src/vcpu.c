@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 #include "vcpu.h"
-#include "mem.h"
+#include "vm_mem.h"
 #include "emu.h"
 
 int
@@ -86,25 +86,20 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
     hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_LDTR_LIMIT, 0x000000000000ffff);
     hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_LDTR_AR, 0x0000000000000082);
 
-#define BASE_GDT_32 0x0000ull
     {
-        /*
-        uint64_t *gdt_entry;
-        gdt_entry = ((uint64_t *) ((uintptr_t) vm_mem + BASE_GDT_32));
-        gdt_entry[0] = 0x0000000000000000; // null
-        gdt_entry[1] = 0x0000000000000000; // null
-        gdt_entry[2] = 0x00cf9a000000ffff; // code
-        gdt_entry[3] = 0x00cf92000000ffff; // data
-        */
-        wmem64(BASE_GDT_32, 0x0000000000000000);
-        wmem64(BASE_GDT_32 + 8, 0x0000000000000000);
-        wmem64(BASE_GDT_32 + 16, 0x00cf9a000000ffff);
-        wmem64(BASE_GDT_32 + 24, 0x00cf92000000ffff);
+        static const uint64_t gdt_gpa = 0;
+        static const uint64_t null = 0x0000000000000000;
+        static const uint64_t code = 0x00cf9a000000ffff;
+        static const uint64_t data = 0x00cf92000000ffff;
+
+        vm_mem_write(gdt_gpa, &null, sizeof null);
+        vm_mem_write(gdt_gpa + 8, &null, sizeof null);
+        vm_mem_write(gdt_gpa + 16, &code, sizeof code);
+        vm_mem_write(gdt_gpa + 24, &data, sizeof data);
+
+        hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_GDTR_BASE, gdt_gpa);
+        hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_GDTR_LIMIT, 0x000000000000001f);
     }
-
-
-    hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_GDTR_BASE, BASE_GDT_32);
-    hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_GDTR_LIMIT, 0x000000000000001f);
 
     hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_IDTR_BASE, 0x0000000000000000);
     hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_IDTR_LIMIT, 0x000000000000ffff);
@@ -142,8 +137,14 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
         err = 1;
     }
 
-#define START_ADDR 0x0000000000008000
-    hv_vcpu_write_register(vcpu, HV_X86_RIP, START_ADDR);
+    static const uint64_t start_addr = 0x0000000000008000;
+    uint64_t stack_addr = 0x0000000000007000;
+    uint64_t pml4_gpa = get_pml4_gpa();
+
+    stack_addr -= 4;
+    vm_mem_write(stack_addr, &pml4_gpa, 4);
+
+    hv_vcpu_write_register(vcpu, HV_X86_RIP, start_addr);
     // RFLAGS second bit is reserved by Intel and must be set to 1
     hv_vcpu_write_register(vcpu, HV_X86_RFLAGS, 0x0000000000000002);
     hv_vcpu_write_register(vcpu, HV_X86_RAX, 0);
@@ -152,7 +153,7 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
     hv_vcpu_write_register(vcpu, HV_X86_RBX, 0);
     hv_vcpu_write_register(vcpu, HV_X86_RSI, 0);
     hv_vcpu_write_register(vcpu, HV_X86_RDI, 0);
-    hv_vcpu_write_register(vcpu, HV_X86_RSP, 0);
+    hv_vcpu_write_register(vcpu, HV_X86_RSP, stack_addr);
     hv_vcpu_write_register(vcpu, HV_X86_RBP, 0);
 
     return err;
@@ -354,7 +355,8 @@ void vcpu_run(hv_vcpuid_t vcpu)
                         uint64_t gpa = gva_to_gpa(rcx - 2);
                         //printf("%llx\n", gpa);
                         uint16_t op = 0;
-                        if (rmem(gpa, &op, sizeof op) && op == 0x050f) {
+                        if (vm_mem_read(gpa, &op, sizeof op) == sizeof op
+                                && op == 0x050f) {
                             printf("SYSCALL\n");
                             char input = 'q';
                             input = getchar();
@@ -369,7 +371,7 @@ void vcpu_run(hv_vcpuid_t vcpu)
                             if (syscall_code == 0x2000004)
                             {
                                 int fd = rreg(vcpu, HV_X86_RDI);
-                                void *buf = vm_mem_ptr(
+                                void *buf = gpa_to_hva(
                                         gva_to_gpa(rreg(vcpu, HV_X86_RSI))
                                         );
                                 size_t count = rreg(vcpu, HV_X86_RDX);

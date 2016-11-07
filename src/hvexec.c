@@ -11,7 +11,7 @@
 #include <Hypervisor/hv.h>
 #include <Hypervisor/hv_vmx.h>
 
-#include "mem.h"
+#include "vm_mem.h"
 #include "vcpu.h"
 #include "macho-parser.h"
 
@@ -56,13 +56,13 @@ main(int argc, char **argv)
         goto VCPU_DESTROY;
     }
 
-#define START_ADDR 0x0000000000008000
+    // Load the kernel
     {
         int f = open(argv[1], O_RDONLY);
         struct stat st;
         stat(argv[1], &st);
         void *buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, f, 0);
-        if (wmem(START_ADDR, buf, st.st_size) != st.st_size)
+        if (vm_mem_write(rreg(vcpu, HV_X86_RIP), buf, st.st_size) != st.st_size)
         {
             fprintf(stderr, "main(): loading %s failed\n", argv[1]);
         }
@@ -70,6 +70,7 @@ main(int argc, char **argv)
         close(f);
     }
 
+    /*
     {
 #define DYLD_ADDR 0x0000000000200000
 #define DYLD_PATH "/usr/lib/dyld"
@@ -106,19 +107,19 @@ main(int argc, char **argv)
         struct entry_point_command entry_point;
         if (!read_entry_point_cmd(f, &entry_point)) {
             printf("entry point: %llx\t stack size: %llx\n", entry_point.entryoff, entry_point.stacksize);
-            //*((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 8)) = entry_point.entryoff;
-            //*((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 8)) = 0x7fff5fc01000;
-            //*((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 16)) = 0x100000000;
+            // *((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 8)) = entry_point.entryoff;
+            // *((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 8)) = 0x7fff5fc01000;
+            // *((uint64_t*) ((uint64_t) vm_mem + KSTACK_ADDR - 16)) = 0x100000000;
 
 
-            //*((uint64_t*) ((uint64_t) vm_mem + DYLD_ADDR + 0x22bee)) = 0xC1010f;
+            // *((uint64_t*) ((uint64_t) vm_mem + DYLD_ADDR + 0x22bee)) = 0xC1010f;
             wmem64(KSTACK_ADDR - 8, 0x7fff5fc01000);
             wmem64(KSTACK_ADDR - 16, 0x100000000);
             wmem32(DYLD_ADDR + 0x22bee, 0xC1010f);
         }
         fclose(f);
     }
-
+*/
     printf("Ready to launch\n");
     vcpu_dump(vcpu);
 
