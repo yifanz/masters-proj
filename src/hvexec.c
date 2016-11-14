@@ -14,6 +14,8 @@
 #include "vm_mem.h"
 #include "vcpu.h"
 #include "macho-parser.h"
+#include "loader.h"
+#include "conf.h"
 
 int
 main(int argc, char **argv)
@@ -33,7 +35,7 @@ main(int argc, char **argv)
         goto VM_DESTROY;
 	}
     
-    if (vm_mem_init())
+    if (vm_mem_init(CONF_INIT_NUM_PAGES))
     {
         fprintf(stderr, "main(): vm_mem_init failed\n");
         ret_val = 1;
@@ -57,18 +59,25 @@ main(int argc, char **argv)
     }
 
     // Load the kernel
+    if (load_raw(argv[1], CONF_START_ADDR))
     {
-        int f = open(argv[1], O_RDONLY);
-        struct stat st;
-        stat(argv[1], &st);
-        void *buf = mmap(NULL, st.st_size, PROT_READ, MAP_PRIVATE, f, 0);
-        if (vm_mem_write(rreg(vcpu, HV_X86_RIP), buf, st.st_size) != st.st_size)
-        {
-            fprintf(stderr, "main(): loading %s failed\n", argv[1]);
-        }
-        munmap(buf, st.st_size);
-        close(f);
+        fprintf(stderr, "main(): load_raw failed\n");
+        goto VCPU_DESTROY;
     }
+
+    uint64_t entry_gva;
+
+    // Load the application
+    if (load_mach_obj(argv[2], &entry_gva))
+    {
+        fprintf(stderr, "main(): load_mach_obj failed\n");
+        goto VCPU_DESTROY;
+    }
+
+    // Put address of application entry point on the stack
+    push64(vcpu, entry_gva);
+
+    vm_mem_dump();
 
     /*
     {

@@ -5,6 +5,7 @@
 #include "vcpu.h"
 #include "vm_mem.h"
 #include "emu.h"
+#include "conf.h"
 
 int
 vcpu_setup_ia32(hv_vcpuid_t vcpu)
@@ -137,14 +138,11 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
         err = 1;
     }
 
-    static const uint64_t start_addr = 0x0000000000008000;
-    uint64_t stack_addr = 0x0000000000007000;
     uint64_t pml4_gpa = get_pml4_gpa();
 
-    stack_addr -= 4;
-    vm_mem_write(stack_addr, &pml4_gpa, 4);
+    vm_mem_write(CONF_STACK_ADDR - 4, &pml4_gpa, 4);
 
-    hv_vcpu_write_register(vcpu, HV_X86_RIP, start_addr);
+    hv_vcpu_write_register(vcpu, HV_X86_RIP, CONF_START_ADDR);
     // RFLAGS second bit is reserved by Intel and must be set to 1
     hv_vcpu_write_register(vcpu, HV_X86_RFLAGS, 0x0000000000000002);
     hv_vcpu_write_register(vcpu, HV_X86_RAX, 0);
@@ -153,7 +151,7 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
     hv_vcpu_write_register(vcpu, HV_X86_RBX, 0);
     hv_vcpu_write_register(vcpu, HV_X86_RSI, 0);
     hv_vcpu_write_register(vcpu, HV_X86_RDI, 0);
-    hv_vcpu_write_register(vcpu, HV_X86_RSP, stack_addr);
+    hv_vcpu_write_register(vcpu, HV_X86_RSP, CONF_STACK_ADDR - 4);
     hv_vcpu_write_register(vcpu, HV_X86_RBP, 0);
 
     return err;
@@ -310,7 +308,8 @@ void vcpu_run(hv_vcpuid_t vcpu)
                 break;
             case VMX_REASON_VMCALL:
                 printf("VMX_REASON_VMCALL\n");
-                if (rreg(vcpu, HV_X86_RIP) == 0x7fff5fc22bee) {
+                // TODO try hacking around spinlock issue in dyld.
+                if (0 && rreg(vcpu, HV_X86_RIP) == 0x7fff5fc22bee) {
                     printf("skipping spinlock\n");
                     hv_vcpu_write_register(vcpu, HV_X86_RIP, 0x7fff5fc22c71);
                 } else {
@@ -413,4 +412,38 @@ wreg(hv_vcpuid_t vcpu, hv_x86_reg_t reg, uint64_t val)
     {
         fprintf(stderr, "wreg(): hv_vcpu_write_register failed\n");
     }
+}
+
+int
+push(hv_vcpuid_t vcpu, const void* val, size_t size)
+{
+    uint64_t stack_addr = rreg(vcpu, HV_X86_RSP);
+    stack_addr -= size;
+
+    if (vm_mem_write(stack_addr, val, size) != size)
+    {
+        goto ERROR;
+    }
+
+    if (hv_vcpu_write_register(vcpu, HV_X86_RSP, stack_addr))
+    {
+        goto ERROR;
+    }
+
+    return 0;
+
+ERROR:
+    return -1;
+}
+
+int
+push32(hv_vcpuid_t vcpu, uint32_t val)
+{
+    return push(vcpu, &val, 4);
+}
+
+int
+push64(hv_vcpuid_t vcpu, uint64_t val)
+{
+    return push(vcpu, &val, 8);
 }

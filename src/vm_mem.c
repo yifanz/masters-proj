@@ -4,8 +4,8 @@
 #include <inttypes.h>
 
 #include "vm_mem.h"
+#include "conf.h"
 
-#define PAGE_SIZE 0x1000
 
 // Translation from IA32e linear to physical address using 4KB paging.
 // 48 out of 64 bits are used use for addressing, the other bits are metadata.
@@ -56,9 +56,9 @@ find_free_mem_region(uint64_t *gpa, size_t npages)
     {
         end = p->gpa;
 
-        if (end - start >= npages * PAGE_SIZE) break;
+        if (end - start >= npages * CONF_PAGE_SIZE) break;
 
-        start = p->gpa + p->npages * PAGE_SIZE;
+        start = p->gpa + p->npages * CONF_PAGE_SIZE;
         p = p->next;
     }
 
@@ -98,16 +98,16 @@ vm_mem_dump()
             printf("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages free\n",
                     start,
                     end - 1,
-                    (end - start) / PAGE_SIZE);
+                    (end - start) / CONF_PAGE_SIZE);
         }
 
         start = end;
-        end = p->gpa + p->npages * PAGE_SIZE;
+        end = p->gpa + p->npages * CONF_PAGE_SIZE;
 
         printf("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages used\n",
                 start,
                 end - 1,
-                (end - start) / PAGE_SIZE);
+                (end - start) / CONF_PAGE_SIZE);
 
         start = end;
 
@@ -127,7 +127,7 @@ vm_mem_alloc(size_t npages, uint64_t *gpa)
         goto ERROR;
     }
 
-    hva = valloc(npages * PAGE_SIZE);
+    hva = valloc(npages * CONF_PAGE_SIZE);
 
     if (hva == NULL)
     {
@@ -206,7 +206,7 @@ map_gva(uint64_t gva, size_t npages, uint64_t gpa)
         }
         else
         {
-            pd_gpa = pml4e & 0xFFFFFFFFFFFFF000;
+            pd_gpa = pdpte & 0xFFFFFFFFFFFFF000;
         }
 
         pdpte = 0 | PRESENT | WRITE | pd_gpa;
@@ -220,7 +220,7 @@ map_gva(uint64_t gva, size_t npages, uint64_t gpa)
         }
         else
         {
-            pt_gpa = pml4e & 0xFFFFFFFFFFFFF000;
+            pt_gpa = pde & 0xFFFFFFFFFFFFF000;
         }
 
         pde = 0 | PRESENT | WRITE | pt_gpa;
@@ -229,8 +229,8 @@ map_gva(uint64_t gva, size_t npages, uint64_t gpa)
         pte = 0 | PRESENT | WRITE | (gpa & 0xFFFFFFFFFFFFF000);
         vm_mem_write(pt_gpa + vaddr.pt_idx, &pte, sizeof pte);
 
-        gva += PAGE_SIZE;
-        gpa += PAGE_SIZE;
+        gva += CONF_PAGE_SIZE;
+        gpa += CONF_PAGE_SIZE;
     }
 
     return 0;
@@ -256,26 +256,26 @@ map_gpa(uint64_t gpa, size_t npages, void* hva)
     // Address must be aligned to page boundary.
     gpa &= 0xFFFFFFFFFFFFF000;
 
-    while(*p != NULL && (*p)->gpa + (*p)->npages * PAGE_SIZE <= gpa)
+    while(*p != NULL && (*p)->gpa + (*p)->npages * CONF_PAGE_SIZE <= gpa)
         p = &(*p)->next;
 
     if (*p == NULL)
     {
         next = NULL; 
     }
-    else if ((*p)->gpa >= gpa + npages * PAGE_SIZE)
+    else if ((*p)->gpa >= gpa + npages * CONF_PAGE_SIZE)
     {
-        next = (*p)->next;
+        next = *p;
     }
     else
     {
         fprintf(stderr, "map_gpa(): 0x%"PRIx64" overlaps existing region "
                 "[0x%"PRIx64" 0x%"PRIx64"]\n",
-                gpa, (*p)->gpa, (*p)->gpa + (*p)->npages * PAGE_SIZE - 1);
+                gpa, (*p)->gpa, (*p)->gpa + (*p)->npages * CONF_PAGE_SIZE - 1);
         goto ERROR;
     }
 
-    if (hv_vm_map(hva, gpa, npages * PAGE_SIZE, 
+    if (hv_vm_map(hva, gpa, npages * CONF_PAGE_SIZE,
                 HV_MEMORY_READ | HV_MEMORY_WRITE | HV_MEMORY_EXEC))
     {
         fprintf(stderr, "map_gpa(): hv_vm_map failed\n");
@@ -298,7 +298,7 @@ map_gpa(uint64_t gpa, size_t npages, void* hva)
     return 0;
 
 ERROR_MALLOC:
-    hv_vm_unmap(gpa, npages * PAGE_SIZE);
+    hv_vm_unmap(gpa, npages * CONF_PAGE_SIZE);
 ERROR:
     return -1;
 }
@@ -342,7 +342,7 @@ gpa_to_hva(uint64_t gpa)
     
     while(p != NULL && p->gpa <= gpa)
     {
-        if (gpa < p->gpa + p->npages * PAGE_SIZE)
+        if (gpa < p->gpa + p->npages * CONF_PAGE_SIZE)
         {
             hva = (char *) p->hva + (gpa - p->gpa);
             break;
@@ -360,11 +360,11 @@ uint64_t get_pml4_gpa()
 }
 
 int
-vm_mem_init()
+vm_mem_init(unsigned int num_pages)
 {
     uint64_t gpa;
 
-    if (vm_mem_alloc(16, &gpa) == NULL)
+    if (vm_mem_alloc(num_pages, &gpa) == NULL)
     {
         fprintf(stderr, "vm_mem_init(): vm_mem_alloc failed.\n");
         goto ERROR;
@@ -376,7 +376,7 @@ vm_mem_init()
         goto ERROR;
     }
 
-    if (map_gva(0, 16, gpa))
+    if (map_gva(0, num_pages, gpa))
     {
         fprintf(stderr, "vm_mem_init(): map_gva failed\n");
         goto ERROR;

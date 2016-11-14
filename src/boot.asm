@@ -71,12 +71,12 @@ org 0x8000
 
 ; Paging structures must be aligned to a 4KByte boundary.
 ; In other words, the lower 12 bits are always zero.
-%define PML4E_ADDR 0x200000
-%define PDPTE_ADDR 0x2000
-%define PDPTE2_ADDR 0x3000
-%define PDE_ADDR 0x4000
-%define PDE2_ADDR 0x5000
-%define PDE3_ADDR 0x6000
+;%define PML4E_ADDR 0x200000
+;%define PDPTE_ADDR 0x2000
+;%define PDPTE2_ADDR 0x3000
+;%define PDE_ADDR 0x4000
+;%define PDE2_ADDR 0x5000
+;%define PDE3_ADDR 0x6000
 
 ; PML4E entry format:
 ; bits  = description
@@ -118,6 +118,12 @@ org 0x8000
 ;; Set present, allow write and page size bits.
 ;mov dword [PDE_ADDR], 0b10000011
 ;mov dword [PDE_ADDR+4], 0
+
+; Save the application entry point address.
+pop eax
+mov [app_entry], eax
+pop eax
+mov [app_entry_high], eax
 
 ; Point CR3 to the root page structure.
 pop eax
@@ -225,8 +231,10 @@ jmp 0b00001000:_64_bits
 
 BITS 64
 _64_bits:
-  mov rax, 0xfeadcefeadef
-  hlt
+  ; TODO TESTING!!!
+  ;mov rax, [app_entry]
+  ;hlt
+
   ; TODO TESTING!!!
   ;mov rax, 0xfadefeedcafebeef
   ;vmcall
@@ -246,60 +254,60 @@ _64_bits:
   ;iretq
 
   ; Map virtual address 0x100000000 to physical address 0x400000
-  %define EXE_ADDR 0x100000000
+ ; %define EXE_ADDR 0x100000000
 
-  mov rax, EXE_ADDR
-  shr rax, 21
-  and rax, 0b111111111
-  shl rax, 3
-  add rax, PDE3_ADDR
+ ; mov rax, EXE_ADDR
+ ; shr rax, 21
+ ; and rax, 0b111111111
+ ; shl rax, 3
+ ; add rax, PDE3_ADDR
 
-  mov rbx, 0x400000
-  or rbx, 0b10000111
-  mov [rax], rbx
+ ; mov rbx, 0x400000
+ ; or rbx, 0b10000111
+ ; mov [rax], rbx
 
-  mov rax, EXE_ADDR
-  shr rax, 30
-  and rax, 0b111111111
-  shl rax, 3
-  add rax, PDPTE_ADDR
+ ; mov rax, EXE_ADDR
+ ; shr rax, 30
+ ; and rax, 0b111111111
+ ; shl rax, 3
+ ; add rax, PDPTE_ADDR
 
-  mov rbx, PDE3_ADDR
-  or rbx, 0b111
-  mov [rax], rbx
+ ; mov rbx, PDE3_ADDR
+ ; or rbx, 0b111
+ ; mov [rax], rbx
 
-  ; Map virtual address 0x7fff5fc00000 to physical address 0x200000
-  %define DYLD_ADDR 0x7fff5fc00000
+ ; ; Map virtual address 0x7fff5fc00000 to physical address 0x200000
+ ; %define DYLD_ADDR 0x7fff5fc00000
 
-  mov rax, DYLD_ADDR
-  shr rax, 21
-  and rax, 0b111111111
-  shl rax, 3
-  add rax, PDE2_ADDR
+ ; mov rax, DYLD_ADDR
+ ; shr rax, 21
+ ; and rax, 0b111111111
+ ; shl rax, 3
+ ; add rax, PDE2_ADDR
 
-  mov rbx, 0x200000
-  or rbx, 0b10000111
-  mov [rax], rbx
+ ; mov rbx, 0x200000
+ ; or rbx, 0b10000111
+ ; mov [rax], rbx
 
-  mov rax, DYLD_ADDR
-  shr rax, 30
-  and rax, 0b111111111
-  shl rax, 3
-  add rax, PDPTE2_ADDR
+ ; mov rax, DYLD_ADDR
+ ; shr rax, 30
+ ; and rax, 0b111111111
+ ; shl rax, 3
+ ; add rax, PDPTE2_ADDR
 
-  mov rbx, PDE2_ADDR
-  or rbx, 0b111
-  mov [rax], rbx
+ ; mov rbx, PDE2_ADDR
+ ; or rbx, 0b111
+ ; mov [rax], rbx
 
-  mov rax, DYLD_ADDR
-  shr rax, 39
-  and rax, 0b111111111
-  shl rax, 3
-  add rax, PML4E_ADDR
+ ; mov rax, DYLD_ADDR
+ ; shr rax, 39
+ ; and rax, 0b111111111
+ ; shl rax, 3
+ ; add rax, PML4E_ADDR
 
-  mov rbx, PDPTE2_ADDR
-  or rbx, 0b111
-  mov [rax], rbx 
+ ; mov rbx, PDPTE2_ADDR
+ ; or rbx, 0b111
+ ; mov [rax], rbx 
 
   ; TODO TESTING!!!
   ;mov rax, 0x100000000 + 3744
@@ -313,8 +321,8 @@ _64_bits:
   ;add rax, rbx
   ;mov rax, 0x100000000 + 0xc00
 
-  pop rax
-  pop rbx
+  ;pop rax
+  ;pop rbx
   ;mov rbx, [rax]
   ;hlt
 
@@ -322,8 +330,9 @@ _64_bits:
   push halt
 
   ; Jump to the application.
+  mov rax, [app_entry]
   push rax
-  push rbx
+  ;push rbx
   
   ;mov rax, 0x7fff5fc22bee
   ;mov rbx, [rax]
@@ -489,3 +498,9 @@ ss_sel:
 ; Task segment selector (loaded by ltr instruction)
 tss_sel:
   dw 0b00011000
+
+; 64-bit address of application entry point
+app_entry:
+    dd 0
+app_entry_high:
+    dd 0

@@ -12,4 +12,7 @@ void vcpu_run(hv_vcpuid_t vcpu);
 uint64_t rreg(hv_vcpuid_t vcpu, hv_x86_reg_t reg);
 void wreg(hv_vcpuid_t vcpu, hv_x86_reg_t reg, uint64_t val);
 
+int push34(hv_vcpuid_t vcpu, uint32_t val);
+int push64(hv_vcpuid_t vcpu, uint64_t val);
+
 #endif /* vcpu_h */
