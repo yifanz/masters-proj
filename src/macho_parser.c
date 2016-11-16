@@ -4,7 +4,7 @@
  * https://github.com/AlexDenisov/segment_dumper
  */
 
-#include "macho-parser.h"
+#include "macho_parser.h"
 #include "logging.h"
 
 /*

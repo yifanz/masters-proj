@@ -4,7 +4,7 @@
 
 #include "loader.h"
 #include "vm_mem.h"
-#include "macho-parser.h"
+#include "macho_parser.h"
 #include "conf.h"
 #include "logging.h"
 

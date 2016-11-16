@@ -1,6 +1,5 @@
 #include "vm_mem.h"
 #include "vcpu.h"
-#include "macho-parser.h"
 #include "loader.h"
 #include "conf.h"
 #include "logging.h"
