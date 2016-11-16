@@ -25,7 +25,7 @@ out:
 
 .PHONEY: run
 run: out/$(TARGET)
-	out/hvexec out/boot out/basic
+	out/hvexec -i -l DEBUG -k out/boot out/basic
 
 .PHONEY: clean
 clean:

@@ -357,13 +357,6 @@ void vcpu_run(hv_vcpuid_t vcpu)
                                 && op == 0x050f) {
                             ILOG("SYSCALL %"PRIx16, op);
 
-                            char input = 'q';
-                            input = getchar();
-                            if (input == 'q') {
-                                stop = 1;
-                                break;
-                            }
-
                             // Set the instruction pointer back to the instruction
                             // that is immediately after syscall.
                             hv_vcpu_write_register(vcpu, HV_X86_RIP, rcx);

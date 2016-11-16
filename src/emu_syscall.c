@@ -9,6 +9,8 @@
 
 #define SYSCALL_WRITE 0x2000004
 
+int syscall_interactive = 0;
+
 int emu_syscall_write(hv_vcpuid_t vcpu);
 
 int
@@ -48,6 +50,15 @@ emu_syscall_write(hv_vcpuid_t vcpu)
     }
 
     buf = gpa_to_hva(gva_to_gpa(buf_gva));
+
+    if (syscall_interactive)
+    {
+        char input = 'q';
+        input = getchar();
+        if (input == 'q') {
+            return 1;
+        }
+    }
 
     ssize_t ret = write(fildes, buf, nbyte);
 

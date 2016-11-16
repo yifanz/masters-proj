@@ -1,21 +1,105 @@
+#include <unistd.h>
+#include <string.h>
+#include <libgen.h>
+
 #include "vm_mem.h"
 #include "vcpu.h"
 #include "loader.h"
 #include "conf.h"
 #include "logging.h"
+#include "emu_syscall.h"
+
+static char* _basename = "hvexec";
+
+static void
+usage()
+{
+    fprintf(stderr,
+            "Usage: %s [-i] [-l <log level>] [-o <log file>] [-s <policy agent>]\n"
+            "       %*s -k <kernel> executable \n"
+            "       -i: pause for input on each interposition event\n"
+            "       -l: log level can be one of DEBUG, INFO, WARN, ERROR or SILENT (default DEBUG)\n"
+            "       -o: log output file path (default stdout)\n"
+            "       -s: optional script for defining custom interposition behavior\n"
+            "       -k: required path to a raw binary that is executed in the VM before the target executable\n"
+            ,_basename, (int)strlen(_basename), "");
+}
 
 int
 main(int argc, char **argv)
 {
     int ret_val = 0;
 
-    if (argc < 2)
+    enum LOG_LEVEL log_level = DEBUG;
+    FILE *log_output = stdout;
+    char *kernel_path = NULL;
+    int optf;
+
+    _basename = basename(argv[0]);
+
+    while ((optf = getopt(argc, argv, "il:o:k:")) != -1)
     {
-        fprintf(stderr, "Usage: hvexec boot basic.o\n");
+        switch (optf)
+        {
+            case 'i':
+                syscall_interactive = 1;
+                break;
+            case 'l':
+                if (!strcmp(optarg, "DEBUG"))
+                    log_level = DEBUG;
+                else if (!strcmp(optarg, "INFO"))
+                    log_level = INFO;
+                else if (!strcmp(optarg, "WARN"))
+                    log_level = WARN;
+                else if (!strcmp(optarg, "ERROR"))
+                    log_level = ERROR;
+                else if (!strcmp(optarg, "SILENT"))
+                    log_level = SILENT;
+                else
+                {
+                    fprintf(stderr, "Unknown logging level %s\n", optarg);
+                    usage();
+                    return 1;
+                }
+                break;
+            case 'o':
+                if ((log_output = fopen(optarg, "a")) == NULL)
+                {
+                    fprintf(stderr, "Opening log file failed %s", optarg);
+                    usage();
+                    return 1;
+                }
+                break;
+            case 'k':
+                kernel_path = optarg;
+                break;
+            default:
+                fprintf(stderr, "Unknown argument %s\n", optarg);
+                usage();
+                return 1;
+        }
+    }
+
+    argc -= optind;
+    argv += optind;
+
+    if (kernel_path == NULL)
+    {
+        fprintf(stderr, "-k <kernel> is a required argument\n");
+        usage();
         return 1;
     }
 
-    init_logging(DEBUG, stdout);
+    if (argc < 1)
+    {
+        fprintf(stderr, "no target executable\n");
+        usage();
+        return 1;
+    }
+
+    char *app_path = argv[0];
+
+    init_logging(log_level, log_output);
 
 	if (hv_vm_create(HV_VM_DEFAULT))
     {
@@ -48,7 +132,7 @@ main(int argc, char **argv)
     }
 
     // Load the kernel
-    if (load_raw(argv[1], CONF_START_ADDR))
+    if (load_raw(kernel_path, CONF_START_ADDR))
     {
         ELOG("load_raw failed");
         goto VCPU_DESTROY;
@@ -57,7 +141,7 @@ main(int argc, char **argv)
     uint64_t entry_gva;
 
     // Load the application
-    if (load_mach_obj(argv[2], &entry_gva))
+    if (load_mach_obj(app_path, &entry_gva))
     {
         ELOG("load_mach_obj failed");
         goto VCPU_DESTROY;

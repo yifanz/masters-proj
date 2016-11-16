@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 
+// If 1 then pause for user input on syscalls.
+extern int syscall_interactive;
+
 /**
  * System V syscall ABI 64-bit
  *
