@@ -1,11 +1,8 @@
-#include <stdio.h>
-#include <errno.h>
 #include <stdlib.h>
-#include <inttypes.h>
 
 #include "vm_mem.h"
 #include "conf.h"
-
+#include "logging.h"
 
 // Translation from IA32e linear to physical address using 4KB paging.
 // 48 out of 64 bits are used use for addressing, the other bits are metadata.
@@ -95,7 +92,7 @@ vm_mem_dump()
 
         if (start < end)
         {
-            printf("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages free\n",
+            DLOG("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages free",
                     start,
                     end - 1,
                     (end - start) / CONF_PAGE_SIZE);
@@ -104,7 +101,7 @@ vm_mem_dump()
         start = end;
         end = p->gpa + p->npages * CONF_PAGE_SIZE;
 
-        printf("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages used\n",
+        DLOG("[0x%016"PRIx64", 0x%016"PRIx64"] %"PRIu64" pages used",
                 start,
                 end - 1,
                 (end - start) / CONF_PAGE_SIZE);
@@ -123,7 +120,7 @@ vm_mem_alloc(size_t npages, uint64_t *gpa)
 
     if (find_free_mem_region(&free_gpa, npages))
     {
-        fprintf(stderr, "vm_mem_alloc(): cannot find free memory region.\n");
+        ELOG("cannot find free memory region.");
         goto ERROR;
     }
 
@@ -131,13 +128,13 @@ vm_mem_alloc(size_t npages, uint64_t *gpa)
 
     if (hva == NULL)
     {
-        fprintf(stderr, "vm_mem_alloc(): valloc failed.\n");
+        ELOG("vm_mem_alloc(): valloc failed.");
         goto ERROR;
     }
 
     if (map_gpa(free_gpa, npages, hva))
     {
-        fprintf(stderr, "vm_mem_alloc(): failed to map gpa.\n");
+        ELOG("failed to map gpa.");
         goto ERROR;
     }
 
@@ -168,7 +165,7 @@ map_gva(uint64_t gva, size_t npages, uint64_t gpa)
 
         if (pml4 == NULL)
         {
-            fprintf(stderr, "map_gva(): vm_mem_alloc failed.\n");
+            ELOG("vm_mem_alloc failed.");
             goto ERROR;
         }
     }
@@ -269,8 +266,8 @@ map_gpa(uint64_t gpa, size_t npages, void* hva)
     }
     else
     {
-        fprintf(stderr, "map_gpa(): 0x%"PRIx64" overlaps existing region "
-                "[0x%"PRIx64" 0x%"PRIx64"]\n",
+        ELOG("0x%"PRIx64" overlaps existing region "
+                "[0x%"PRIx64" 0x%"PRIx64"]",
                 gpa, (*p)->gpa, (*p)->gpa + (*p)->npages * CONF_PAGE_SIZE - 1);
         goto ERROR;
     }
@@ -278,7 +275,7 @@ map_gpa(uint64_t gpa, size_t npages, void* hva)
     if (hv_vm_map(hva, gpa, npages * CONF_PAGE_SIZE,
                 HV_MEMORY_READ | HV_MEMORY_WRITE | HV_MEMORY_EXEC))
     {
-        fprintf(stderr, "map_gpa(): hv_vm_map failed\n");
+        ELOG("hv_vm_map failed");
         goto ERROR;
     }
 
@@ -286,7 +283,7 @@ map_gpa(uint64_t gpa, size_t npages, void* hva)
 
     if (*p == NULL)
     {
-        fprintf(stderr, "map_gpa(): malloc failed\n");
+        ELOG("malloc failed");
         *p = next;
         goto ERROR_MALLOC;
     }
@@ -366,19 +363,19 @@ vm_mem_init(unsigned int num_pages)
 
     if (vm_mem_alloc(num_pages, &gpa) == NULL)
     {
-        fprintf(stderr, "vm_mem_init(): vm_mem_alloc failed.\n");
+        ELOG("vm_mem_alloc failed.");
         goto ERROR;
     }
 
     if (gpa != 0)
     {
-        fprintf(stderr, "vm_mem_init(): gpa != 0\n");
+        ELOG("gpa != 0");
         goto ERROR;
     }
 
     if (map_gva(0, num_pages, gpa))
     {
-        fprintf(stderr, "vm_mem_init(): map_gva failed\n");
+        ELOG("map_gva failed");
         goto ERROR;
     }
 
@@ -407,8 +404,7 @@ vm_mem_read(uint64_t gpa, void* buf, size_t bytes)
 
         if (hva == NULL)
         {
-            fprintf(stderr, "vm_mem_read(): addr (0x%"PRIx64") out of bounds\n",
-                    gpa);
+            ELOG("addr (0x%"PRIx64") out of bounds", gpa);
             break;
         }
 
@@ -433,8 +429,7 @@ vm_mem_write(uint64_t gpa, const void* buf, size_t bytes)
 
         if (hva == NULL)
         {
-            fprintf(stderr, "vm_mem_write(): addr (0x%"PRIx64") out of bounds\n",
-                    gpa);
+            ELOG("addr (0x%"PRIx64") out of bounds", gpa);
             break;
         }
 
@@ -445,4 +440,24 @@ vm_mem_write(uint64_t gpa, const void* buf, size_t bytes)
     }
 
     return bytes_written;
+}
+
+int
+vm_mem_verify(uint64_t gva, size_t nbytes)
+{
+    while(nbytes)
+    {
+        uint64_t gpa = gva_to_gpa(gva);
+        void *hva = gpa_to_hva(gpa);
+
+        if (hva == NULL) goto ERROR;
+
+        gva++;
+        nbytes--;
+    }
+
+    return 0;
+
+ERROR:
+    return -1;
 }

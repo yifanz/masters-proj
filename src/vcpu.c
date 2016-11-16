@@ -1,11 +1,9 @@
-#include <stdio.h>
-#include <errno.h>
-#include <unistd.h>
-
 #include "vcpu.h"
 #include "vm_mem.h"
 #include "emu.h"
 #include "conf.h"
+#include "emu_syscall.h"
+#include "logging.h"
 
 int
 vcpu_setup_ia32(hv_vcpuid_t vcpu)
@@ -134,7 +132,7 @@ vcpu_setup_ia32(hv_vcpuid_t vcpu)
             hv_vcpu_enable_native_msr(vcpu, MSR_TSC, 1) ||
             hv_vcpu_enable_native_msr(vcpu, MSR_IA32_TSC_AUX, 1))
     {
-        fprintf(stderr, "vcpu_setup_ia32(): MSR init failure\n");
+        ELOG("MSR init failure");
         err = 1;
     }
 
@@ -164,7 +162,7 @@ vcpu_dump(hv_vcpuid_t vcpu)
 
 #define VMCS_DUMP_VALUE(ID) \
     hv_vmx_vcpu_read_vmcs(vcpu, ID, &value);\
-	printf(#ID": 0x%llx\n", value);
+	DLOG(#ID": 0x%llx", value);
 
     VMCS_DUMP_VALUE(VMCS_CTRL_PIN_BASED);
 
@@ -237,7 +235,7 @@ vcpu_dump(hv_vcpuid_t vcpu)
 
 #define VCPU_DUMP_VALUE(ID) \
     hv_vcpu_read_register(vcpu, ID, &value);\
-	printf(#ID": 0x%llx\n", value);
+	DLOG(#ID": 0x%llx", value);
 
     VCPU_DUMP_VALUE(HV_X86_RIP);
     VCPU_DUMP_VALUE(HV_X86_RFLAGS);
@@ -260,7 +258,7 @@ void vcpu_run(hv_vcpuid_t vcpu)
         hv_return_t error = hv_vcpu_run(vcpu);
         if (error)
         {
-            fprintf(stderr, "hv_vcpu_run error: 0x%x\n", error);
+            ELOG("hv_vcpu_run error: 0x%x", error);
             break;
         }
 
@@ -273,27 +271,25 @@ void vcpu_run(hv_vcpuid_t vcpu)
         hv_vmx_vcpu_read_vmcs(vcpu, VMCS_RO_VMEXIT_INSTR_LEN,
                 &exit_instr_len);
 
-        printf("--VMEXIT-----------------------------\n");
+        DLOG("--VMEXIT-----------------------------");
 
-        printf("VMCS_RO_EXIT_REASON: 0x%llx\n"
-                "VMCS_RO_EXIT_QUALIFIC: 0x%llx\n"
-                "VMCS_RO_VMEXIT_INSTR_LEN: 0x%llx\n", 
-                exit_reason,
-                exit_qualification,
-                exit_instr_len);
+        DLOG("VMCS_RO_EXIT_REASON: 0x%llx", exit_reason);
+        DLOG("VMCS_RO_EXIT_QUALIFIC: 0x%llx", exit_qualification);
+        DLOG("VMCS_RO_VMEXIT_INSTR_LEN: 0x%llx", exit_instr_len);
+
         vcpu_dump(vcpu);
 
         switch (exit_reason) {
             case VMX_REASON_EXC_NMI:
                 {
-                    printf("VMX_REASON_EXC_NMI\n");
+                    DLOG("VMX_REASON_EXC_NMI");
                     uint64_t vecinfo = 0;
                     hv_vmx_vcpu_read_vmcs(vcpu,
                             VMCS_RO_IDT_VECTOR_INFO, &vecinfo);
                     uint8_t interrupt_number = vecinfo & 0xFF;
-                    printf("interrupt number %u\n", interrupt_number);
+                    DLOG("interrupt number %u", interrupt_number);
                     if (interrupt_number == 0) {
-                        printf("Maybe general protection exception?\n");
+                        DLOG("Maybe general protection exception?");
                         stop = 1;
                         break;
                     }
@@ -303,14 +299,14 @@ void vcpu_run(hv_vcpuid_t vcpu)
                 }
             case VMX_REASON_IRQ:
                 // Probably time-slice was up
-                printf("VMX_REASON_IRQ\n");
+                DLOG("VMX_REASON_IRQ");
 
                 break;
             case VMX_REASON_VMCALL:
-                printf("VMX_REASON_VMCALL\n");
+                DLOG("VMX_REASON_VMCALL");
                 // TODO try hacking around spinlock issue in dyld.
                 if (0 && rreg(vcpu, HV_X86_RIP) == 0x7fff5fc22bee) {
-                    printf("skipping spinlock\n");
+                    DLOG("skipping spinlock");
                     hv_vcpu_write_register(vcpu, HV_X86_RIP, 0x7fff5fc22c71);
                 } else {
                     hv_vcpu_write_register(vcpu, HV_X86_RIP,
@@ -319,27 +315,27 @@ void vcpu_run(hv_vcpuid_t vcpu)
                 }
                 break;
             case VMX_REASON_HLT:
-                printf("VMX_REASON_HLT\n");
+                DLOG("VMX_REASON_HLT");
                 stop = 1;
                 break;
             case VMX_REASON_EPT_VIOLATION:
                 // handle memory access here
-                printf("VMX_REASON_EPT_VIOLATION\n");
+                DLOG("VMX_REASON_EPT_VIOLATION");
                 break;
             case VMX_REASON_RDMSR:
-                printf("VMX_REASON_RDMSR\n");
+                DLOG("VMX_REASON_RDMSR");
                 stop = emu_rdmsr(vcpu);
                 break;
             case VMX_REASON_WRMSR:
-                printf("VMX_REASON_WRMSR\n");
+                DLOG("VMX_REASON_WRMSR");
                 stop = emu_wrmsr(vcpu);
                 break;
             case VMX_REASON_MOV_CR:
-                printf("VMX_REASON_MOV_CR\n");
+                DLOG("VMX_REASON_MOV_CR");
                 stop = emu_mov_cr(vcpu);
                 break;
             case VMX_REASON_CPUID:
-                printf("CPUID\n");
+                DLOG("CPUID");
                 stop = emu_cpuid(vcpu);
                 break;
             default:
@@ -348,44 +344,40 @@ void vcpu_run(hv_vcpuid_t vcpu)
                     // figure out if syscall was made. 
                     // syscall saves addr of next instruction in rcx
                     uint64_t rcx = 0;
+
                     hv_vcpu_read_register(vcpu, HV_X86_RCX, &rcx);
+
                     if (rcx >= 2) {
                         // syscall instr length 2 bytes
                         uint64_t gpa = gva_to_gpa(rcx - 2);
                         //printf("%llx\n", gpa);
                         uint16_t op = 0;
+
                         if (vm_mem_read(gpa, &op, sizeof op) == sizeof op
                                 && op == 0x050f) {
-                            printf("SYSCALL\n");
+                            ILOG("SYSCALL %"PRIx16, op);
+
                             char input = 'q';
                             input = getchar();
                             if (input == 'q') {
                                 stop = 1;
                                 break;
                             }
+
+                            // Set the instruction pointer back to the instruction
+                            // that is immediately after syscall.
                             hv_vcpu_write_register(vcpu, HV_X86_RIP, rcx);
 
-                            // do corresponding syscall on host
-                            uint64_t syscall_code = rreg(vcpu, HV_X86_RAX);
-                            if (syscall_code == 0x2000004)
+                            if (emu_syscall(vcpu))
                             {
-                                int fd = rreg(vcpu, HV_X86_RDI);
-                                void *buf = gpa_to_hva(
-                                        gva_to_gpa(rreg(vcpu, HV_X86_RSI))
-                                        );
-                                size_t count = rreg(vcpu, HV_X86_RDX);
-                                ssize_t ret = write(fd, buf, count);
-                                wreg(vcpu, HV_X86_RAX, ret);
-                            }
-                            else
-                            {
-                                printf("Unhandled syscall\n"); 
+                                ELOG("Unhandled syscall");
                                 stop = 1;
                             }
+
                             break;
                         }
                     }
-                    printf("Unhandled exit\n");
+                    ELOG("Unhandled exit");
                     stop = 1;
                 }
         }
@@ -399,7 +391,7 @@ rreg(hv_vcpuid_t vcpu, hv_x86_reg_t reg)
 
 	if (hv_vcpu_read_register(vcpu, reg, &val))
     {
-        fprintf(stderr, "rreg(): hv_vcpu_read_register failed\n");
+        ELOG("hv_vcpu_read_register failed");
 	}
 
 	return val;
@@ -410,7 +402,7 @@ wreg(hv_vcpuid_t vcpu, hv_x86_reg_t reg, uint64_t val)
 {
     if (hv_vcpu_write_register(vcpu, reg, val))
     {
-        fprintf(stderr, "wreg(): hv_vcpu_write_register failed\n");
+        ELOG("hv_vcpu_write_register failed");
     }
 }
 

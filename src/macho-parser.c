@@ -5,6 +5,7 @@
  */
 
 #include "macho-parser.h"
+#include "logging.h"
 
 /*
    int main(int argc, char *argv[]) {
@@ -80,7 +81,7 @@ void dump_segment_commands(FILE *obj_file, int offset, int is_swap, uint32_t ncm
                 swap_segment_command_64(segment, 0);
             }
 
-            printf("segname: %s\n", segment->segname);
+            DLOG("segname: %s", segment->segname);
 
             free(segment);
         } else if (cmd->cmd == LC_SEGMENT) {
@@ -89,12 +90,12 @@ void dump_segment_commands(FILE *obj_file, int offset, int is_swap, uint32_t ncm
                 swap_segment_command(segment, 0);
             }
 
-            printf("segname: %s\n", segment->segname);
+            DLOG("segname: %s", segment->segname);
 
             free(segment);
         } else if (cmd->cmd == LC_MAIN) {
             struct entry_point_command *segment = load_bytes(obj_file, actual_offset, sizeof(struct entry_point_command));
-            printf("entry point: %llx\n", segment->entryoff);
+            DLOG("entry point: %llx", segment->entryoff);
         }
 
         actual_offset += cmd->cmdsize;
@@ -116,7 +117,7 @@ void dump_mach_header(FILE *obj_file, int offset, int is_64, int is_swap) {
         ncmds = header->ncmds;
         load_commands_offset += header_size;
 
-        printf("%s (%d commands)\n", cpu_type_name(header->cputype), ncmds);
+        DLOG("%s (%d commands)", cpu_type_name(header->cputype), ncmds);
 
         free(header);
     } else {
@@ -129,7 +130,7 @@ void dump_mach_header(FILE *obj_file, int offset, int is_64, int is_swap) {
         ncmds = header->ncmds;
         load_commands_offset += header_size;
 
-        printf("%s (%d commands)\n", cpu_type_name(header->cputype), ncmds);
+        DLOG("%s (%d commands)", cpu_type_name(header->cputype), ncmds);
 
         free(header);
     }
@@ -192,7 +193,7 @@ int read_segment_commands(FILE *obj_file, int offset, int is_swap, uint32_t ncmd
                 swap_segment_command_64(segment, 0);
             }
 
-            printf("segname: %s\n", segment->segname);
+            DLOG("segname: %s", segment->segname);
 
             free(segment);
         } else if (cmd->cmd == LC_SEGMENT) {
@@ -201,13 +202,13 @@ int read_segment_commands(FILE *obj_file, int offset, int is_swap, uint32_t ncmd
                 swap_segment_command(segment, 0);
             }
 
-            printf("segname: %s\n", segment->segname);
+            DLOG("segname: %s", segment->segname);
 
             free(segment);
         } else if (cmd->cmd == LC_MAIN) {
             struct entry_point_command *segment = load_bytes(obj_file, actual_offset, sizeof(struct entry_point_command));
             *entry_point = *segment;
-            printf("entry point: %llx\n", segment->entryoff);
+            DLOG("entry point: %llx", segment->entryoff);
             return 0;
         }
 
@@ -233,7 +234,7 @@ int read_mach_header(FILE *obj_file, int offset, int is_64, int is_swap, struct 
         ncmds = header->ncmds;
         load_commands_offset += header_size;
 
-        printf("%s (%d commands)\n", cpu_type_name(header->cputype), ncmds);
+        DLOG("%s (%d commands)", cpu_type_name(header->cputype), ncmds);
 
         free(header);
     } else {
@@ -246,7 +247,7 @@ int read_mach_header(FILE *obj_file, int offset, int is_64, int is_swap, struct 
         ncmds = header->ncmds;
         load_commands_offset += header_size;
 
-        printf("%s (%d commands)\n", cpu_type_name(header->cputype), ncmds);
+        DLOG("%s (%d commands)", cpu_type_name(header->cputype), ncmds);
 
         free(header);
     }

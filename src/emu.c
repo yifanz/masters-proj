@@ -1,10 +1,9 @@
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "emu.h"
 #include "vcpu.h"
+#include "logging.h"
 
-static uint64_t vmx_get_guest_reg(hv_vcpuid_t vcpu, int ident)
+static uint64_t
+vmx_get_guest_reg(hv_vcpuid_t vcpu, int ident)
 {
     switch (ident) {
     case 0:
@@ -40,8 +39,8 @@ static uint64_t vmx_get_guest_reg(hv_vcpuid_t vcpu, int ident)
     case 15:
         return (rreg(vcpu, HV_X86_R15));
     default:
-        printf("invalid vmx register %d", ident);
-        abort();
+        ELOG("invalid vmx register %d", ident);
+        return 0;
     }
 }
 
@@ -53,7 +52,7 @@ emu_rdmsr(hv_vcpuid_t vcpu)
         (uint32_t) rreg(vcpu, HV_X86_RCX);
 
     if (ecx == 0xc0000080) {
-        printf("RDMSR EFER\n");
+        DLOG("RDMSR EFER");
         uint64_t efer = 0;
         hv_vmx_vcpu_read_vmcs(vcpu,
                 VMCS_GUEST_IA32_EFER, &efer);
@@ -65,7 +64,7 @@ emu_rdmsr(hv_vcpuid_t vcpu)
                 rreg(vcpu, HV_X86_RIP)
                 + 2);
     } else {
-        printf("Unsupported MSR\n");
+        ELOG("Unsupported MSR");
         stop = 1;
     }
 
@@ -88,14 +87,14 @@ emu_wrmsr(hv_vcpuid_t vcpu)
     edx = (uint32_t) tmp;
 
     if (ecx == 0xc0000080) {
-        printf("WRMSR EFER\n");
+        DLOG("WRMSR EFER");
         hv_vmx_vcpu_write_vmcs(vcpu, VMCS_GUEST_IA32_EFER,
                 (uint64_t) edx << 32 | eax);
         hv_vcpu_write_register(vcpu, HV_X86_RIP,
                 rreg(vcpu, HV_X86_RIP)
                 + 2);
     } else {
-        printf("Unsupported MSR ecx=0x%u\n", ecx);
+        ELOG("Unsupported MSR ecx=0x%u", ecx);
         stop = 1;
     }
 
@@ -112,9 +111,9 @@ emu_mov_cr(hv_vcpuid_t vcpu)
 
     switch (exit_qualification & 0xf) {
         case 0:
-            printf("emulate cr0\n");
+            DLOG("emulate cr0");
             if ((exit_qualification & 0xf0) != 0x00) {
-                printf("Only MOV to cr0 supported\n");
+                ELOG("Only MOV to cr0 supported");
                 break;
             }
             uint64_t regval = 
@@ -153,10 +152,10 @@ emu_mov_cr(hv_vcpuid_t vcpu)
                     + 3);
             break;
         case 4:
-            printf("emulate cr4\n");
+            DLOG("emulate cr4");
             break;
         case 8:
-            printf("emulate cr8\n");
+            DLOG("emulate cr8");
             break;
     }
 

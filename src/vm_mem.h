@@ -26,4 +26,5 @@ void vm_mem_destroy();
 int vm_mem_read(uint64_t gpa, void* buf, size_t bytes);
 int vm_mem_write(uint64_t gpa, const void* buf, size_t bytes);
 
+int vm_mem_verify(uint64_t gva, size_t nbytes);
 #endif /* vm_mem_h */

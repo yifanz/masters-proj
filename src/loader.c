@@ -1,6 +1,3 @@
-#include <stdio.h>
-#include <sys/mman.h>
-#include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -9,6 +6,7 @@
 #include "vm_mem.h"
 #include "macho-parser.h"
 #include "conf.h"
+#include "logging.h"
 
 int
 load_raw(const char *path, uint64_t gpa)
@@ -22,7 +20,7 @@ load_raw(const char *path, uint64_t gpa)
 
     if (f == -1)
     {
-        fprintf(stderr, "load_raw(): open %s failed\n", path);
+        ELOG("open %s failed", path);
         goto ERROR;
     }
 
@@ -30,7 +28,7 @@ load_raw(const char *path, uint64_t gpa)
 
     if (stat(path, &st) < 0)
     {
-        fprintf(stderr, "load_raw(): stat %s failed\n", path);
+        ELOG("stat %s failed", path);
         goto ERROR_CLOSE;
     }
 
@@ -43,7 +41,7 @@ load_raw(const char *path, uint64_t gpa)
 
     if (vm_mem_write(gpa, buf, st.st_size) != st.st_size)
     {
-        fprintf(stderr, "load_raw(): writing %s to vm mem failed\n", path);
+        ELOG("writing %s to vm mem failed", path);
         goto ERROR_MUNMAP;
     }
 
@@ -76,7 +74,7 @@ load_mach_obj(const char *path, uint64_t *entryoff)
         struct entry_point_command entry_point;
 
         if (!read_entry_point_cmd(f, &entry_point)) {
-            printf("load_mach_obj(): entry point: %llx\t stack size: %llx\n",
+            DLOG("entry point: %llx\t stack size: %llx",
                     entry_point.entryoff, entry_point.stacksize);
             *entryoff = entry_point.entryoff + gva;
         }
@@ -94,7 +92,7 @@ load_mach_obj(const char *path, uint64_t *entryoff)
 
         if (hva == NULL)
         {
-            fprintf(stderr, "load_mach_obj(): mmap failed\n");
+            ELOG("mmap failed");
             goto ERROR;
         }
 
@@ -107,13 +105,13 @@ load_mach_obj(const char *path, uint64_t *entryoff)
 
         if (map_gpa(gpa, num_pages, hva))
         {
-            fprintf(stderr, "load_mach_obj(): map_gpa failed\n");
+            ELOG("map_gpa failed");
             goto ERROR;
         }
 
         if (map_gva(gva, num_pages, gpa))
         {
-            fprintf(stderr, "load_mach_obj(): map_gva failed\n");
+            ELOG("map_gva failed");
             goto ERROR;
         }
     }

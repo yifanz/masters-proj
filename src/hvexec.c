@@ -1,21 +1,9 @@
-#include <stdlib.h>
-#include <stdio.h>
-#include <stdbool.h>
-#include <errno.h>
-#include <sys/stat.h>
-#include <stdint.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <sys/mman.h>
-#include <sys/types.h>
-#include <Hypervisor/hv.h>
-#include <Hypervisor/hv_vmx.h>
-
 #include "vm_mem.h"
 #include "vcpu.h"
 #include "macho-parser.h"
 #include "loader.h"
 #include "conf.h"
+#include "logging.h"
 
 int
 main(int argc, char **argv)
@@ -28,16 +16,18 @@ main(int argc, char **argv)
         return 1;
     }
 
+    init_logging(DEBUG, stdout);
+
 	if (hv_vm_create(HV_VM_DEFAULT))
     {
-        fprintf(stderr, "main(): hv_vm_create failed\n");
+        ELOG("hv_vm_create failed");
         ret_val = 1;
         goto VM_DESTROY;
 	}
     
     if (vm_mem_init(CONF_INIT_NUM_PAGES))
     {
-        fprintf(stderr, "main(): vm_mem_init failed\n");
+        ELOG("vm_mem_init failed");
         ret_val = 1;
         goto VM_MEM_DESTROY;
     }
@@ -46,14 +36,14 @@ main(int argc, char **argv)
 
     if (hv_vcpu_create(&vcpu, HV_VCPU_DEFAULT))
     {
-        fprintf(stderr, "main(): hv_vcpu_create failed\n");
+        ELOG("hv_vcpu_create failed");
         ret_val = 1;
         goto VCPU_DESTROY;
     }
 
     if (vcpu_setup_ia32(vcpu))
     {
-        fprintf(stderr, "main(): vcpu_setup_ia32 failed\n");
+        ELOG("vcpu_setup_ia32 failed");
         ret_val = 1;
         goto VCPU_DESTROY;
     }
@@ -61,7 +51,7 @@ main(int argc, char **argv)
     // Load the kernel
     if (load_raw(argv[1], CONF_START_ADDR))
     {
-        fprintf(stderr, "main(): load_raw failed\n");
+        ELOG("load_raw failed");
         goto VCPU_DESTROY;
     }
 
@@ -70,7 +60,7 @@ main(int argc, char **argv)
     // Load the application
     if (load_mach_obj(argv[2], &entry_gva))
     {
-        fprintf(stderr, "main(): load_mach_obj failed\n");
+        ELOG("load_mach_obj failed");
         goto VCPU_DESTROY;
     }
 
@@ -129,7 +119,7 @@ main(int argc, char **argv)
         fclose(f);
     }
 */
-    printf("Ready to launch\n");
+    DLOG("Ready to launch");
     vcpu_dump(vcpu);
 
     vcpu_run(vcpu);
@@ -137,7 +127,7 @@ main(int argc, char **argv)
 VCPU_DESTROY:
     if (hv_vcpu_destroy(vcpu))
     {
-        fprintf(stderr, "main(): hv_vcpu_destroy failed\n");
+        ELOG("hv_vcpu_destroy failed");
         ret_val = 1;
     }
 
@@ -147,7 +137,7 @@ VM_MEM_DESTROY:
 VM_DESTROY:
 	if (hv_vm_destroy())
     {
-        fprintf(stderr, "main(): hv_vm_destroy failed\n");
+        ELOG("hv_vm_destroy failed");
         ret_val = 1;
 	}
 
