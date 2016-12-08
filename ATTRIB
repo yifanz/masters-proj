@@ -1,0 +1,17 @@
+ATTRIBUTIONS/CREDITS
+
+This project uses open source code. The source code and
+corresponding license information is listed below.
+
+Xhyve
+AUTHOR: Michael Steil
+URL: https://github.com/mist64/xhyve
+LICENSE: BSD
+
+Mach-O Parser and Segment Dumper
+AUTHOR: Alex Denisov
+URL: https://github.com/AlexDenisov/segment_dumper
+LICENSE: MIT
+
+OSDev.org
+URL: http://wiki.osdev.org/Main_Page
