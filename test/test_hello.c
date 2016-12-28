@@ -19,15 +19,21 @@ size_t str_len (const char *str)
 int
 main(int argc, const char* argv[])
 {
-    unsigned long code = 0x2000004; // syscall "write"
     unsigned long stdout = 1;
     unsigned long ret = 0;
 
-    char * str = "Hello World\n";
+    //char * str = "Hello World\n";
     char * str2 = "Hello UCLA\n";
     char * str3 = "This is string 3!\n";
     char buf[20] = {0};
     unsigned long len = 0;
+    
+    for (int i = 0; i < argc; i++)
+    {
+        const char *str = argv[i];
+        size_t len = str_len(str);
+        write(stdout, str, len);
+    }
 
     //__asm__("vmcall;\n");
     ret = write(stdout, str2, str_len(str2));

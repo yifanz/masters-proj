@@ -27,8 +27,7 @@ out:
 
 .PHONEY: run
 run: out/$(TARGET) $(TEST_TARGETS)
-	echo $@
-	out/hvexec -i -l DEBUG -k out/boot out/test_hello
+	out/hvexec -i -l INFO -k out/boot out/test_hello hello world
 
 .PHONEY: clean
 clean:

@@ -22,7 +22,7 @@ usage()
 {
     fprintf(stderr,
             "Usage: %s [-i] [-l <log level>] [-o <log file>] [-s <policy agent>]\n"
-            "       %*s -k <kernel> executable \n"
+            "       %*s -k <kernel> executable [args ...] \n"
             "       -i: pause for input on each interposition event\n"
             "       -l: log level can be one of DEBUG, INFO, WARN, ERROR or SILENT (default DEBUG)\n"
             "       -o: log output file path (default stdout)\n"
@@ -105,6 +105,9 @@ main(int argc, char **argv)
 
     char *app_path = argv[0];
 
+    argc--;
+    argv++;
+
     init_logging(log_level, log_output);
 
 	if (hv_vm_create(HV_VM_DEFAULT))
@@ -152,6 +155,41 @@ main(int argc, char **argv)
         ELOG("load_mach_obj failed");
         goto VCPU_DESTROY;
     }
+
+    // Setup args to the application's main
+    uint64_t argv_addr = CONF_ARGV_ADDR;
+    uint64_t args_addr = CONF_ARGS_ADDR;
+
+    for (int i = 0; i < argc; i++)
+    {
+        char *str = argv[i];
+        size_t nbytes;
+
+        nbytes = sizeof args_addr;
+
+        if (nbytes != vm_mem_write(argv_addr, &args_addr, nbytes))
+        {
+            ELOG("Setup main args failed");
+            goto VCPU_DESTROY;
+        }
+
+        argv_addr += nbytes;
+        nbytes = strlen(str) + 1;
+
+        if (nbytes != vm_mem_write(args_addr, str, nbytes))
+        {
+            ELOG("Setup main args failed");
+            goto VCPU_DESTROY;
+        }
+
+        args_addr += nbytes;
+    }
+
+    // Put application's argv on the stack
+    push64(vcpu, CONF_ARGV_ADDR);
+
+    // Put application's argc on the stack
+    push64(vcpu, argc);
 
     // Put address of application entry point on the stack
     push64(vcpu, entry_gva);

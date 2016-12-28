@@ -37,6 +37,7 @@ org 0x8000
 ; 0x0000 <- GDT for 32-bit mode (can be erased once we get to 64-bit mode)
 ; 0x7000 <- Start of 4KByte kernel stack (stack grows down)
 ; 0x7000 <- TSS segment
+; 0x7100 <- Main args start here
 ; 0x8000 <- The first instrucion is here
 
 ; Kernel stack
@@ -130,6 +131,17 @@ pop eax
 mov [app_entry], eax
 pop eax
 mov [app_entry_high], eax
+
+; Save the application main's argc and argv
+pop eax
+mov [app_argc], eax
+pop eax
+mov [app_argc_high], eax
+
+pop eax
+mov [app_argv], eax
+pop eax
+mov [app_argv_high], eax
 
 ; Point CR3 to the root page structure.
 pop eax
@@ -349,6 +361,11 @@ _64_bits:
   mov rcx, 0
   mov rdx, 0
 
+  ;set argc and argv
+  mov rdi, [app_argc]
+  mov rsi, [app_argv]
+
+  ;long jump to application's main
   ret
 
 halt:
@@ -509,4 +526,16 @@ tss_sel:
 app_entry:
     dd 0
 app_entry_high:
+    dd 0
+
+; Application main's argc
+app_argc:
+    dd 0
+app_argc_high:
+    dd 0
+
+; Application main's argv
+app_argv:
+    dd 0
+app_argv_high:
     dd 0
