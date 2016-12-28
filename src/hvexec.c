@@ -105,9 +105,6 @@ main(int argc, char **argv)
 
     char *app_path = argv[0];
 
-    argc--;
-    argv++;
-
     init_logging(log_level, log_output);
 
 	if (hv_vm_create(HV_VM_DEFAULT))
