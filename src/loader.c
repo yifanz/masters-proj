@@ -79,6 +79,11 @@ load_mach_obj(const char *path, uint64_t *entryoff)
         FILE *f = fopen(path, "r");
         struct entry_point_command entry_point;
 
+        if (f == NULL) {
+            ELOG("%s not found", path);
+            goto ERROR;
+        }
+
         if (!read_entry_point_cmd(f, &entry_point)) {
             DLOG("entry point: %llx\t stack size: %llx",
                     entry_point.entryoff, entry_point.stacksize);

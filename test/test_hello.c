@@ -1,7 +1,12 @@
-typedef unsigned long ssize_t;
-typedef unsigned long size_t;
+/*
+ * Copyright (c) 2016, Yi-Fan Zhang.  All rights reserved.
+ * Copyrights licensed under the BSD License.
+ * See the accompanying LICENSE file for terms.
+ * See the accompanying ATTRIB file for attributions/credits.
+ */
 
-ssize_t write(int fd, const void *buf, size_t count);
+#include "unistd.h"
+#include "string.h"
 
 void reverse(char str[], int length);
 char* itoa(int num, char* str, int base);
@@ -21,7 +26,7 @@ main(int argc, const char* argv[])
     char * str = "Hello World\n";
     char * str2 = "Hello UCLA\n";
     char * str3 = "This is string 3!\n";
-    char buf[20];
+    char buf[20] = {0};
     unsigned long len = 0;
 
     //__asm__("vmcall;\n");
@@ -31,41 +36,6 @@ main(int argc, const char* argv[])
     buf[len] = '\n';
     ret = write(stdout, buf, len+1);
     ret = write(stdout, str3, str_len(str3));
-
-    /*
-    __asm__(
-            "movq %1, %%rax;\n"
-            "movq %2, %%rdi;\n"
-            "movq %3, %%rsi;\n"
-            "movq %4, %%rdx;\n"
-            "syscall;\n"
-            "movq %%rax, %0;\n"
-            : "=g"(ret)
-            : "g"(code), "g"(stdout), "g"(str2), "g"(len2)
-            : ); // assign from generic registers to syscall registers
-    */
-
-    return ret; // echo $?
-}
-
-ssize_t write(int fd, const void *buf, size_t count)
-{
-    long code = 0x2000004;
-    unsigned long ret = 0;
-
-    __asm__(/*
-            "mov $0xcafe, %%rax;\n"
-            "vmcall;\n"
-            */
-            "movq %1, %%rax;\n"
-            "movq %2, %%rdi;\n"
-            "movq %3, %%rsi;\n"
-            "movq %4, %%rdx;\n"
-            "syscall;\n"
-            "movq %%rax, %0;\n"
-            : "=g"(ret)
-            : "g"(code), "g"(fd), "g"(buf), "g"(count)
-            : );
 
     return ret;
 }

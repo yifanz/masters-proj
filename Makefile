@@ -7,7 +7,10 @@ AS := toolchain/nasm -fbin
 SRC := $(wildcard src/*.c)
 OBJ := $(SRC:src/%.c=out/%.o)
 
-out/$(TARGET): out $(OBJ) out/boot out/basic
+TEST_SRC := $(wildcard test/test_*.c)
+TEST_TARGETS := $(TEST_SRC:test/%.c=out/%)
+
+out/$(TARGET): out $(OBJ) out/boot
 	$(LD) $@ -framework Hypervisor $(OBJ)
 
 $(OBJ): out/%.o : src/%.c
@@ -16,16 +19,16 @@ $(OBJ): out/%.o : src/%.c
 out/boot: src/boot.asm
 	$(AS) src/boot.asm -o out/boot
 
-out/basic: test/basic.c
-	$(CC) -c test/basic.c -o out/basic.o
-	$(CC) -o out/basic out/basic.o
+$(TEST_TARGETS): out/% : test/%.c
+	$(CC) -Wall -Itest $< -o $@
 
 out:
 	mkdir -p out
 
 .PHONEY: run
-run: out/$(TARGET)
-	out/hvexec -i -l DEBUG -k out/boot out/basic
+run: out/$(TARGET) $(TEST_TARGETS)
+	echo $@
+	out/hvexec -i -l DEBUG -k out/boot out/test_hello
 
 .PHONEY: clean
 clean:
