@@ -14,6 +14,7 @@
 #include "conf.h"
 #include "logging.h"
 #include "emu_syscall.h"
+#include "plugin.h"
 
 static char* _basename = "hvexec";
 
@@ -21,12 +22,12 @@ static void
 usage()
 {
     fprintf(stderr,
-            "Usage: %s [-i] [-l <log level>] [-o <log file>] [-s <policy agent>]\n"
+            "Usage: %s [-i] [-l <log level>] [-o <log file>] [-s <policy plugin>]\n"
             "       %*s -k <kernel> executable [args ...] \n"
             "       -i: pause for input on each interposition event\n"
             "       -l: log level can be one of DEBUG, INFO, WARN, ERROR or SILENT (default DEBUG)\n"
             "       -o: log output file path (default stdout)\n"
-            "       -s: optional script for defining custom interposition behavior\n"
+            "       -s: optional dylib for defining custom interposition behavior\n"
             "       -k: required path to a raw binary that is executed in the VM before the target executable\n"
             ,_basename, (int)strlen(_basename), "");
 }
@@ -39,11 +40,12 @@ main(int argc, char **argv)
     enum LOG_LEVEL log_level = DEBUG;
     FILE *log_output = stdout;
     char *kernel_path = NULL;
+    char *plugin_path = NULL;
     int optf;
 
     _basename = basename(argv[0]);
 
-    while ((optf = getopt(argc, argv, "il:o:k:")) != -1)
+    while ((optf = getopt(argc, argv, "il:o:k:s:")) != -1)
     {
         switch (optf)
         {
@@ -78,6 +80,9 @@ main(int argc, char **argv)
                 break;
             case 'k':
                 kernel_path = optarg;
+                break;
+            case 's':
+                plugin_path = optarg;
                 break;
             default:
                 fprintf(stderr, "Unknown argument %s\n", optarg);
@@ -142,6 +147,16 @@ main(int argc, char **argv)
     {
         ELOG("load_raw failed");
         goto VCPU_DESTROY;
+    }
+
+    // Load plugin if specified
+    if (plugin_path != NULL)
+    {
+        if (load_plugin(plugin_path))
+        {
+            ELOG("load_plugin failed");
+            goto VCPU_DESTROY;
+        }
     }
 
     uint64_t entry_gva;

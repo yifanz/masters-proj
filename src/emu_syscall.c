@@ -12,6 +12,7 @@
 #include "vcpu.h"
 #include "vm_mem.h"
 #include "logging.h"
+#include "plugin.h"
 
 #define SYSCALL_WRITE 0x2000004
 
@@ -66,7 +67,13 @@ emu_syscall_write(hv_vcpuid_t vcpu)
         }
     }
 
-    ssize_t ret = write(fildes, buf, nbyte);
+    const struct plugin_ops *ops = get_plugin_ops();
+    ssize_t ret;
+
+    if (ops->cb_write(fildes, buf, nbyte, &ret))
+    {
+        ret = write(fildes, buf, nbyte);
+    }
 
     wreg(vcpu, HV_X86_RAX, ret);
 

@@ -14,7 +14,7 @@ out/$(TARGET): out $(OBJ) out/boot
 	$(LD) $@ -framework Hypervisor $(OBJ)
 
 $(OBJ): out/%.o : src/%.c
-	$(CC) -Wall -Isrc -c $< -o $@
+	$(CC) -Wall -Isrc -Iinclude -c $< -o $@
 
 out/boot: src/boot.asm
 	$(AS) src/boot.asm -o out/boot
@@ -22,12 +22,15 @@ out/boot: src/boot.asm
 $(TEST_TARGETS): out/% : test/%.c
 	$(CC) -Wall -Itest $< -o $@
 
+out/plugin.dylib: test/plugin.c
+	$(CC) -Wall -Iinclude -dynamiclib $< -o $@
+
 out:
 	mkdir -p out
 
 .PHONEY: run
-run: out/$(TARGET) $(TEST_TARGETS)
-	out/hvexec -i -l INFO -k out/boot out/test_hello hello world
+run: out/$(TARGET) $(TEST_TARGETS) out/plugin.dylib
+	out/hvexec -i -l INFO -k out/boot -s out/plugin.dylib out/test_hello hello world
 
 .PHONEY: clean
 clean:
