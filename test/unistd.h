@@ -57,4 +57,25 @@ write(int fildes, const void *buf, size_t nbyte)
     return ret;
 }
 
+int
+close(int fildes)
+{
+    long code = 0x2000006;
+    unsigned long ret = 0;
+
+    __asm__(/*
+               "mov $0xcafe, %%rax;\n"
+               "vmcall;\n"
+               */
+            "movq %1, %%rax;\n"
+            "movq %2, %%rdi;\n"
+            "syscall;\n"
+            "movq %%rax, %0;\n"
+            : "=g"(ret)
+            : "g"(code), "g"(fildes)
+            : );
+
+    return ret;
+}
+
 #endif /* unistd_h */

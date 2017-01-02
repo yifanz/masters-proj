@@ -38,5 +38,7 @@ main(int argc, const char* argv[])
         write(1, buf, nbytes);
     }
 
+    close(fd);
+
     return ret;
 }
