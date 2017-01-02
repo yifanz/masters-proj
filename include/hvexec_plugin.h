@@ -12,6 +12,7 @@
 struct plugin_ops
 {
     int (*cb_write)(int, const void*, size_t, ssize_t*);
+    int (*cb_read)(int, const void*, size_t, ssize_t*);
 };
 
 int plugin_init(struct plugin_ops *ops);

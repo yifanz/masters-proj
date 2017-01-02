@@ -10,7 +10,7 @@ OBJ := $(SRC:src/%.c=out/%.o)
 TEST_SRC := $(wildcard test/test_*.c)
 TEST_TARGETS := $(TEST_SRC:test/%.c=out/%)
 
-out/$(TARGET): out $(OBJ) out/boot
+out/$(TARGET): out $(OBJ) out/boot $(TEST_TARGETS) 
 	$(LD) $@ -framework Hypervisor $(OBJ)
 
 $(OBJ): out/%.o : src/%.c
@@ -28,9 +28,13 @@ out/plugin.dylib: test/plugin.c
 out:
 	mkdir -p out
 
-.PHONEY: run
-run: out/$(TARGET) $(TEST_TARGETS) out/plugin.dylib
+.PHONEY: run-hello
+run-hello: out/$(TARGET) out/plugin.dylib
 	out/hvexec -i -l INFO -k out/boot -s out/plugin.dylib out/test_hello hello world
+
+.PHONEY: run-cat
+run-cat: out/$(TARGET) out/plugin.dylib
+	out/hvexec -i -l INFO -k out/boot -s out/plugin.dylib out/test_cat ATTRIB
 
 .PHONEY: clean
 clean:

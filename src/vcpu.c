@@ -361,7 +361,6 @@ void vcpu_run(hv_vcpuid_t vcpu)
 
                         if (vm_mem_read(gpa, &op, sizeof op) == sizeof op
                                 && op == 0x050f) {
-                            ILOG("SYSCALL %"PRIx16, op);
 
                             // Set the instruction pointer back to the instruction
                             // that is immediately after syscall.

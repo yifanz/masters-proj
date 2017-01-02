@@ -10,6 +10,12 @@
 
 #include "sys/_types/_size_t.h"
 
+size_t
+strlen (const char *str)
+{
+    return (*str) ? strlen(++str) + 1 : 0;
+}
+
 void*
 memset(void *b, int c, size_t len)
 {
