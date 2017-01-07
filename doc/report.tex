@@ -5,7 +5,7 @@
 \usepackage{fullpage}
 \linespread{1.5}
 
-\title{Secure Execution of x86 Machine Code Using Hardware-Assisted Virtualization}
+\title{Safe Execution of Untrusted x86 Machine Code Using Hardware-Assisted Virtualization}
 \author{Yi-Fan Zhang}
 \date{January 2017}
 
@@ -227,9 +227,7 @@ Performance degradation when scaling to hundreds of processes.
 \section{Conclusions}
 Here we have documented \PROJNAME{}, a sandbox for safely executing untrusted x86 machine code.
 We have shown how \PROJNAME{} can be used to guard against undesirable side effects on underlying system resources and evaluated the performance cost.
-We hope to have convinced the reader that hardware-assisted virtualization has the potential for achieving a higher level of protection and control for users compared to previous technologies.
-
-However, \PROJNAME{} is simply a starting point. It is easy to imagine many other applications using this type of technology:
+We hope to have convinced the reader that hardware-assisted virtualization has the potential for achieving a higher level of protection and control for users compared to previous technologies. However, \PROJNAME{} is simply a starting point. It is easy to imagine many other applications using this type of technology:
 
 \begin{itemize}
     \item
