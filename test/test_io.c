@@ -15,7 +15,20 @@ main(int argc, const char* argv[])
 {
     if (argc < 3) return -1;
 
-    int fd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO);
+    int test_write = strcmp(argv[2], "read");
+    int nbytes = argc > 3 ? atoi(argv[3]) : 0;
+    char buf[1] = {'1'};
+
+    int fd;
+
+    if (test_write)
+    {
+        fd = open(argv[1], O_RDWR|O_CREAT|O_TRUNC, S_IRWXU|S_IRWXG|S_IRWXO);
+    }
+    else
+    {
+        fd = open(argv[1], O_RDONLY, 0);
+    }
 
     if (fd < 0) {
         write(1, argv[1], strlen(argv[1]));
@@ -24,12 +37,16 @@ main(int argc, const char* argv[])
         return -1;
     }
 
-    int nbytes = atoi(argv[2]);
-
-    for(int i = 0; i < nbytes; i++)
+    if (test_write)
     {
-        char c = '1';
-        write(fd, &c, 1);
+        for(int i = 0; i < nbytes; i++)
+        {
+            write(fd, &buf, 1);
+        }
+    }
+    else
+    {
+        while(read(fd, &buf, 1) == 1){};
     }
 
     close(fd);

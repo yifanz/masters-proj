@@ -9,7 +9,7 @@
 \author{Yi-Fan Zhang}
 \date{January 2017}
 
-\newcommand{\PROJNAME}{\textit{hvexec}}
+\newcommand{\PROJNAME}{\textit{Hvexec}}
 
 \begin{document}
 
@@ -216,13 +216,39 @@ Although \PROJNAME{} only supports statically linked binaries, this does not pre
 
 
 \section{Evaluation}
-The only question remaining is the performance overhead of our approach which will be
-addressed in the evaluation section.
-Results for benchmarks.
-\subsection{Compute Performance}
-\subsection{Context Switching Overhead}
-\subsection{Scalability}
-Performance degradation when scaling to hundreds of processes.
+The only question remaining is the performance overhead of our approach.
+In this section, we compare the performance in terms of execution time between programs running on the host versus the same programs running in a VM under \PROJNAME{}.
+Naturally, any code executing in the VM will suffer some performance cost; however, we hope to show that by using HVM, most instructions execute unhindered and the bottleneck is limited to the transition between VM and host.
+Figure 2 shows a breakdown of execution time between native and \PROJNAME{}.
+
+\begin{figure}[ht]
+    \includegraphics[width=16cm]{overhead}
+    \caption{Chart comparing virtualization overhead.}
+    \centering
+\end{figure}
+
+Sys refers to time spent in the kernel and user refers to time running in user-mode.
+The pidigits benchmark is a program that repeatedly calculates the first eight hundred digits of pi.
+It contains almost exclusively integer arithmetic and system call transitions are kept to a minimum.
+The write benchmark opens a temporary file and writes a million bytes of data. Then the read benchmark reads back the contents of that temporary file.
+Both the read and write benchmarks performs the IO a single byte a time.
+So unlike the pidigits benchmark, these programs heavily use system calls in a tight loop and spends negligible time doing arithmetic computations.
+Lastly, the start-up benchmark compares the cost of program loading and termination on the host versus the VM.
+The test program used in this benchmark is an empty main function that returns immediately once it is called.
+In the case of running under \PROJNAME{}, most of the time will be used for copying the test program and \PROJNAME{} binaries into memory, booting and tearing down the VM.
+Running natively on the host avoids the cost of VM start-up as well as the additional overhead of loading the \PROJNAME{} binary.
+
+\PROJNAME{} is overall 1.24 times slower than native execution in the pidigits benchmark.
+As expected, the fraction of sys time spent is reversed because \texttt{Hypervisor.framework} turns execution over to the kernel for VM execution.
+If we compare the sys execution time of \PROJNAME{} against native, we see that it is only 1.07 times slower which is aligned with our expectation of HVM performance.
+The user execution time is also slightly higher because \PROJNAME{} incurs additional user time for handling the VMEXIT events and initial program load.
+
+Our system performs the worst in the read and write benchmarks because of the high number of VMEXITs triggered by repeatedly issuing system calls.
+The cost of making a system call under \PROJNAME{} is the time it takes for the kernel to service the system call plus the time it takes for \texttt{Hypervisor.framework} to perform a context switch plus the logic inside of VMEXIT handlers in \PROJNAME{}.
+Thus, the proportion of time spent between user and sys is much higher for \PROJNAME{}.
+
+Start-up time is 1.77 slower for \PROJNAME{}.
+This is expected because we are essentially loading two programs (application and \PROJNAME{}) whereas the native host execution only loads one. A future optimization may be to keep \PROJNAME{} process alive so we can hot-load application binaries and amortize the cost of start-up.
 
 \section{Conclusions}
 Here we have documented \PROJNAME{}, a sandbox for safely executing untrusted x86 machine code.

@@ -13,28 +13,20 @@ int
 main(int argc, const char* argv[])
 {
     unsigned long stdout = 1;
-    unsigned long ret = 0;
+    char cr = '\n';
 
-    //char * str = "Hello World\n";
-    char * str2 = "Hello UCLA\n";
-    char * str3 = "This is string 3!\n";
-    char buf[20] = {0};
-    unsigned long len = 0;
-    
-    for (int i = 0; i < argc; i++)
+    for (int i = 1; i < argc; i++)
     {
         const char *str = argv[i];
         size_t len = strlen(str);
         write(stdout, str, len);
+        char space = ' ';
+        if (i < argc - 1)
+            write(stdout, &space, 1);
     }
 
-    //__asm__("vmcall;\n");
-    ret = write(stdout, str2, strlen(str2));
-    itoa(ret, buf, 10);
-    len = strlen(buf);
-    buf[len] = '\n';
-    ret = write(stdout, buf, len+1);
-    ret = write(stdout, str3, strlen(str3));
+    write(stdout, &cr, 1);
 
-    return ret;
+    //__asm__("vmcall;\n");
+    return 0;
 }

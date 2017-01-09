@@ -13,32 +13,41 @@
 int
 main(int argc, const char* argv[])
 {
-    int ret = 0;
-
-    if (argc < 2) return -1;
-
-    int fd = open(argv[1], O_RDONLY, 0);
-
-    if (fd < 0) {
-        write(1, argv[1], strlen(argv[1]));
-        const char *err_msg = ":No such file or directory\n";
-        write(1, err_msg, strlen(err_msg));
-        return -1;
-    }
-
-    char buf[128] = {0};
-    ssize_t nbytes;
-
-    while(1)
+    if (argc < 2)
     {
-        nbytes = read(fd, buf, sizeof(buf));
-        if (nbytes <= 0) {
-            break;
-        }
-        write(1, buf, nbytes);
+        char c;
+        while(read(0, &c, 1) == 1)
+        {
+            write(1, &c, 1);
+        };
+
+        return 0;
     }
+    else
+    {
+        int fd = open(argv[1], O_RDONLY, 0);
 
-    close(fd);
+        if (fd < 0) {
+            write(1, argv[1], strlen(argv[1]));
+            const char *err_msg = ":No such file or directory\n";
+            write(1, err_msg, strlen(err_msg));
+            return -1;
+        }
 
-    return ret;
+        char buf[128] = {0};
+        ssize_t nbytes;
+
+        while(1)
+        {
+            nbytes = read(fd, buf, sizeof(buf));
+            if (nbytes <= 0) {
+                break;
+            }
+            write(1, buf, nbytes);
+        }
+
+        close(fd);
+
+        return 0;
+    }
 }
