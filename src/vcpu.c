@@ -310,6 +310,7 @@ void vcpu_run(hv_vcpuid_t vcpu)
                 break;
             case VMX_REASON_VMCALL:
                 DLOG("VMX_REASON_VMCALL");
+                ILOG("vmcall executed");
                 // TODO try hacking around spinlock issue in dyld.
                 if (0 && rreg(vcpu, HV_X86_RIP) == 0x7fff5fc22bee) {
                     DLOG("skipping spinlock");
