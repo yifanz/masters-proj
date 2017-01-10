@@ -2,9 +2,10 @@
 
 # Prints source code line counts
 
-PROJ_DIR="../${0%/*}"
+CUR_DIR="${0%/*}"
 
-cd $PROJ_DIR
+cd $CUR_DIR
+cd ../
 
 find . -type f -iname "*.[ch]" \
     -o -type f -iname "*.asm" \

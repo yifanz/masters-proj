@@ -21,9 +21,11 @@
 */
 
 #define LOG(level, format, ...) \
-    if (_log_level <= level) \
+    if (_log_level <= level) { \
         fprintf(_log_fildes, "[%5s %s:%s:%d] "format"\n", \
-            #level, __FILE__, __func__, __LINE__, ##__VA_ARGS__);
+            #level, __FILE__, __func__, __LINE__, ##__VA_ARGS__);\
+        fflush(_log_fildes); \
+    }
 
 #define DLOG(format, ...) LOG(DEBUG, format, ##__VA_ARGS__);
 #define ILOG(format, ...) LOG(INFO, format, ##__VA_ARGS__);

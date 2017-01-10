@@ -14,7 +14,7 @@
 int
 cb_write(int fildes, const void *buf, size_t nbyte, ssize_t *ret)
 {
-    printf("Write called\n");
+    //printf("Write called\n");
     return 1;
 }
 
@@ -25,7 +25,7 @@ cb_open(const char *path, int flags, int mode, int *ret)
     char *private = "/Users/nlogn/Documents/hvexec/ATTRIB";
     char *redirect = "/Users/nlogn/Documents/hvexec/LICENSE";
 
-    printf("open:%s\n", path);
+    //printf("open:%s\n", path);
     full_path = realpath(path, NULL);
 
     if (full_path && strncmp(full_path, private, strlen(private)) == 0)
@@ -44,7 +44,7 @@ cb_open(const char *path, int flags, int mode, int *ret)
 int
 plugin_init(struct plugin_ops *ops)
 {
-    printf("Plugin Init\n");
+    //printf("Plugin Init\n");
 
     ops->cb_write = cb_write;
     ops->cb_open = cb_open;
