@@ -23,7 +23,7 @@ cb_open(const char *path, int flags, int mode, int *ret)
 {
     char *full_path;
     char *private = "/Users/nlogn/Documents/hvexec/ATTRIB";
-    char *redirect = "/Users/nlogn/Documents/hvexec/LICENSE";
+    char *redirect = "/Users/nlogn/Documents/hvexec/test/plugin.c";
 
     //printf("open:%s\n", path);
     full_path = realpath(path, NULL);
